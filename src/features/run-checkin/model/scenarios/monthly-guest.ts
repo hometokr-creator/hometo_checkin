@@ -41,7 +41,7 @@ export const monthlyGuestScenario = {
           {
             value: "ok",
             label: "네, 다 괜찮아요",
-            next: { type: "complete", outcome: "ok" },
+            next: { type: "step", stepId: "q_tag_soft" },
           },
           {
             value: "issue",
@@ -50,6 +50,12 @@ export const monthlyGuestScenario = {
           },
         ],
       },
+    },
+    q_tag_soft: {
+      id: "q_tag_soft",
+      answerKey: "issueTag",
+      message: { text: "다행이에요! 혹시 아주 사소하게라도 신경 쓰였던 건 없으셨어요?" },
+      control: { kind: "tags", tags: CHECKIN_TAG_OPTIONS, nextByTag: tagNext },
     },
     q_tag: {
       id: "q_tag",
@@ -116,7 +122,7 @@ export const monthlyGuestScenario = {
         placeholder: "담당 매니저가 참고하면 좋을 내용을 적어주세요.",
         skipLabel: "건너뛰기",
         submitLabel: "보내기",
-        next: { type: "complete", outcome: "reported" },
+        next: { type: "complete-from-answers" },
       },
     },
   },

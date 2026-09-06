@@ -54,7 +54,7 @@ export const renewalGuestScenario = {
           {
             value: "none",
             label: "지금은 괜찮아요",
-            next: { type: "complete", outcome: "renewal" },
+            next: { type: "step", stepId: "q_tag_soft" },
           },
           {
             value: "needed",

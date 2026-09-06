@@ -45,7 +45,7 @@ function createInitialAnswers(): CheckinAnswers {
   return { responses: {}, issues: [] };
 }
 
-function createInitialState(scenario: Scenario, context: ScenarioContext): CheckinMachineState {
+export function createInitialState(scenario: Scenario, context: ScenarioContext): CheckinMachineState {
   const entry = scenario.steps[scenario.entry];
 
   if (!entry) {
@@ -88,6 +88,22 @@ function advance(
   scenario: Scenario,
   context: ScenarioContext,
 ): CheckinMachineState {
+  if (next.type === "complete-from-answers") {
+    const issues = state.answers.issues.filter(
+      (issue) => issue.tag !== "other" || Boolean(state.answers.freeText?.trim()),
+    );
+    const overallTriage = getOverallTriageLevel(issues);
+    return advance(
+      { ...state, answers: { ...state.answers, issues, overallTriage } },
+      {
+        type: "complete",
+        outcome: overallTriage === "R1" ? "urgent" : issues.length > 0 ? "reported" : "ok",
+      },
+      scenario,
+      context,
+    );
+  }
+
   if (next.type === "issue-count") {
     const stepId =
       state.answers.issues.length < next.lessThan ? next.then : next.otherwise;
@@ -134,7 +150,7 @@ function updateResponses(
   };
 }
 
-function createMachineReducer(scenario: Scenario, context: ScenarioContext) {
+export function createMachineReducer(scenario: Scenario, context: ScenarioContext) {
   return (state: CheckinMachineState, action: MachineAction): CheckinMachineState => {
     if (action.type === "submit-succeeded") {
       if (state.status !== "submitting" || !state.pendingOutcome) return state;

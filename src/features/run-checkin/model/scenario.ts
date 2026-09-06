@@ -11,6 +11,7 @@ export type CompletionOutcome = "ok" | "reported" | "urgent" | "renewal";
 export type ScenarioNext =
   | { type: "step"; stepId: StepId }
   | { type: "complete"; outcome: CompletionOutcome }
+  | { type: "complete-from-answers" }
   | {
       type: "issue-count";
       lessThan: number;
