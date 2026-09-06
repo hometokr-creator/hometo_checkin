@@ -31,6 +31,7 @@ export type TriageLevel = "R1" | "R2";
 export interface CheckinIssue {
   tag: CheckinIssueTag;
   detail?: string;
+  freeText?: string;
   triageLevel: TriageLevel;
 }
 
@@ -43,7 +44,7 @@ export interface CheckinAnswers {
 
 export type ResolveCheckinSessionResult =
   | { status: "active"; session: CheckinSession }
-  | { status: "completed" }
+  | { status: "completed"; sessionId: string }
   | { status: "expired" }
   | { status: "invalid" }
   | { status: "error" };

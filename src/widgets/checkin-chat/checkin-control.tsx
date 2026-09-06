@@ -64,6 +64,7 @@ export function CheckinControl({
     case "text":
       return (
         <ChatTextInput
+          key={step.id}
           maxLength={step.control.maxLength}
           placeholder={step.control.placeholder}
           skipLabel={step.control.skipLabel}

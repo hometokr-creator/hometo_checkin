@@ -6,7 +6,7 @@ const tagNext = {
   facility: { type: "step", stepId: "q_chip" },
   relationship: { type: "step", stepId: "q_chip" },
   settlement: { type: "step", stepId: "q_chip" },
-  urgent: { type: "complete", outcome: "urgent" },
+  urgent: { type: "step", stepId: "q_chip_urgent" },
   other: { type: "step", stepId: "q_free" },
 } as const satisfies Record<string, ScenarioNext>;
 
@@ -14,16 +14,9 @@ const secondTagNext = {
   facility: { type: "step", stepId: "q_chip2" },
   relationship: { type: "step", stepId: "q_chip2" },
   settlement: { type: "step", stepId: "q_chip2" },
-  urgent: { type: "complete", outcome: "urgent" },
-  other: { type: "step", stepId: "q_free" },
+  urgent: { type: "step", stepId: "q_chip_urgent" },
+  other: { type: "step", stepId: "q_free2" },
 } as const satisfies Record<string, ScenarioNext>;
-
-const afterIssueDetail = {
-  type: "issue-count",
-  lessThan: 2,
-  then: "q_more",
-  otherwise: "q_free",
-} as const satisfies ScenarioNext;
 
 interface GuestIssueScenarioConfig {
   id: string;
@@ -56,7 +49,7 @@ export function createGuestIssueScenario({
             {
               value: "ok",
               label: okayLabel,
-              next: { type: "complete", outcome: "ok" },
+              next: { type: "step", stepId: "q_tag_soft" },
             },
             {
               value: "issue",
@@ -65,6 +58,12 @@ export function createGuestIssueScenario({
             },
           ],
         },
+      },
+      q_tag_soft: {
+        id: "q_tag_soft",
+        answerKey: "issueTag",
+        message: { text: "다행이에요! 혹시 아주 사소하게라도 신경 쓰였던 건 없으셨어요?" },
+        control: { kind: "tags", tags: CHECKIN_TAG_OPTIONS, nextByTag: tagNext },
       },
       q_tag: {
         id: "q_tag",
@@ -80,7 +79,7 @@ export function createGuestIssueScenario({
         id: "q_chip",
         answerKey: "issueDetail",
         message: { text: "조금만 더 자세히 알려주시겠어요?" },
-        control: { kind: "chips", next: afterIssueDetail },
+        control: { kind: "chips", next: { type: "step", stepId: "q_free" } },
       },
       q_more: {
         id: "q_more",
@@ -97,7 +96,7 @@ export function createGuestIssueScenario({
             {
               value: "no",
               label: "이게 다예요",
-              next: { type: "step", stepId: "q_free" },
+              next: { type: "complete-from-answers" },
             },
           ],
         },
@@ -117,21 +116,56 @@ export function createGuestIssueScenario({
         id: "q_chip2",
         answerKey: "secondIssueDetail",
         message: { text: "그것도 조금 더 알려주시겠어요?" },
-        control: { kind: "chips", next: afterIssueDetail },
+        control: { kind: "chips", next: { type: "step", stepId: "q_free2" } },
       },
-      q_free: {
-        id: "q_free",
-        answerKey: "freeText",
-        message: {
-          text: "마지막으로, 더 하고 싶은 말씀 있으면 편하게 적어주세요.\n안 적으셔도 괜찮아요.",
-        },
+      q_chip_urgent: {
+        id: "q_chip_urgent",
+        answerKey: "urgentDetail",
+        message: { text: "어떤 도움이 필요하신가요?" },
+        control: { kind: "chips", next: { type: "step", stepId: "q_free_urgent" } },
+      },
+      q_free_urgent: {
+        id: "q_free_urgent",
+        answerKey: "urgentFreeText",
+        message: { text: "담당 매니저가 상황을 파악할 수 있도록 조금 더 알려주세요.\n적기 어려우시면 건너뛰셔도 괜찮아요." },
         control: {
           kind: "text",
+          target: "issue",
+          maxLength: 500,
+          placeholder: "현재 상황과 필요한 도움을 적어주세요.",
+          skipLabel: "건너뛰기",
+          submitLabel: "보내기",
+          next: { type: "complete-from-answers" },
+        },
+      },
+      q_free2: {
+        id: "q_free2",
+        answerKey: "secondIssueFreeText",
+        message: { text: "이 불편에 대해서도 더 알려주실 내용이 있으면 적어주세요.\n안 적으셔도 괜찮아요." },
+        control: {
+          kind: "text",
+          target: "issue",
           maxLength: 500,
           placeholder: "담당 매니저가 참고하면 좋을 내용을 적어주세요.",
           skipLabel: "건너뛰기",
           submitLabel: "보내기",
-          next: { type: "complete", outcome: "reported" },
+          next: { type: "complete-from-answers" },
+        },
+      },
+      q_free: {
+        id: "q_free",
+        answerKey: "issueFreeText",
+        message: {
+          text: "이 불편에 대해 더 알려주실 내용이 있으면 편하게 적어주세요.\n안 적으셔도 괜찮아요.",
+        },
+        control: {
+          kind: "text",
+          target: "issue",
+          maxLength: 500,
+          placeholder: "담당 매니저가 참고하면 좋을 내용을 적어주세요.",
+          skipLabel: "건너뛰기",
+          submitLabel: "보내기",
+          next: { type: "step", stepId: "q_more" },
         },
       },
     },

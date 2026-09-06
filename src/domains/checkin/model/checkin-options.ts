@@ -28,6 +28,7 @@ export const CHECKIN_DETAIL_OPTIONS = {
     { value: "pests", label: "벌레·해충" },
     { value: "electricity", label: "전기·조명" },
     { value: "none", label: "해당 없음" },
+    { value: "free", label: "그 외 (직접 입력)" },
   ],
   relationship: [
     { value: "communication", label: "소통이 어려워요" },
@@ -36,6 +37,7 @@ export const CHECKIN_DETAIL_OPTIONS = {
     { value: "visitors", label: "방문객 관련" },
     { value: "noise", label: "소음·생활습관" },
     { value: "none", label: "해당 없음" },
+    { value: "free", label: "그 외 (직접 입력)" },
   ],
   settlement: [
     { value: "utilities", label: "공과금이 이상해요" },
@@ -43,9 +45,17 @@ export const CHECKIN_DETAIL_OPTIONS = {
     { value: "deposit", label: "보증금 관련" },
     { value: "settlement-date", label: "정산일 문제" },
     { value: "none", label: "해당 없음" },
+    { value: "free", label: "그 외 (직접 입력)" },
   ],
-  urgent: [],
-  other: [],
+  urgent: [
+    { value: "gas-electricity", label: "가스·누전" },
+    { value: "unlocked-door", label: "문 안 잠김" },
+    { value: "personal-safety", label: "신변 불안" },
+    { value: "immediate-help", label: "즉시 도움 필요" },
+    { value: "none", label: "해당 없음" },
+    { value: "free", label: "그 외 (직접 입력)" },
+  ],
+  other: [{ value: "free", label: "그 외 (직접 입력)" }],
 } as const satisfies Record<CheckinIssueTag, readonly CheckinDetailOption[]>;
 
 export function getCheckinDetailOptions(tag: CheckinIssueTag) {

@@ -16,7 +16,7 @@ export const ruleEventScenario = {
           {
             value: "understood",
             label: "네, 괜찮아요",
-            next: { type: "complete", outcome: "ok" },
+            next: { type: "step", stepId: "q_free_ok" },
           },
           {
             value: "needs-help",
@@ -27,6 +27,19 @@ export const ruleEventScenario = {
         ],
       },
     },
+    q_free_ok: {
+      id: "q_free_ok",
+      answerKey: "freeText",
+      message: { text: "더 하고 싶은 말씀이 있으면 편하게 적어주세요.\n안 적으셔도 괜찮아요." },
+      control: {
+        kind: "text",
+        maxLength: 500,
+        placeholder: "담당 매니저가 참고하면 좋을 내용을 적어주세요.",
+        skipLabel: "건너뛰기",
+        submitLabel: "보내기",
+        next: { type: "complete-from-answers" },
+      },
+    },
     q_free: {
       id: "q_free",
       answerKey: "freeText",
@@ -35,6 +48,7 @@ export const ruleEventScenario = {
       },
       control: {
         kind: "text",
+        target: "issue",
         maxLength: 500,
         placeholder: "확인이 필요한 규칙이나 상황을 적어주세요.",
         skipLabel: "건너뛰기",

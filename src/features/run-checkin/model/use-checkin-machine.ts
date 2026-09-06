@@ -45,7 +45,7 @@ function createInitialAnswers(): CheckinAnswers {
   return { responses: {}, issues: [] };
 }
 
-function createInitialState(scenario: Scenario, context: ScenarioContext): CheckinMachineState {
+export function createInitialState(scenario: Scenario, context: ScenarioContext): CheckinMachineState {
   const entry = scenario.steps[scenario.entry];
 
   if (!entry) {
@@ -88,6 +88,22 @@ function advance(
   scenario: Scenario,
   context: ScenarioContext,
 ): CheckinMachineState {
+  if (next.type === "complete-from-answers") {
+    const issues = state.answers.issues.filter(
+      (issue) => issue.tag !== "other" || Boolean(issue.freeText?.trim() || state.answers.freeText?.trim()),
+    );
+    const overallTriage = getOverallTriageLevel(issues);
+    return advance(
+      { ...state, answers: { ...state.answers, issues, overallTriage } },
+      {
+        type: "complete",
+        outcome: overallTriage === "R1" ? "urgent" : issues.length > 0 || state.answers.freeText ? "reported" : "ok",
+      },
+      scenario,
+      context,
+    );
+  }
+
   if (next.type === "issue-count") {
     const stepId =
       state.answers.issues.length < next.lessThan ? next.then : next.otherwise;
@@ -134,7 +150,7 @@ function updateResponses(
   };
 }
 
-function createMachineReducer(scenario: Scenario, context: ScenarioContext) {
+export function createMachineReducer(scenario: Scenario, context: ScenarioContext) {
   return (state: CheckinMachineState, action: MachineAction): CheckinMachineState => {
     if (action.type === "submit-succeeded") {
       if (state.status !== "submitting" || !state.pendingOutcome) return state;
@@ -202,6 +218,7 @@ function createMachineReducer(scenario: Scenario, context: ScenarioContext) {
 
     if (action.type === "select-tag") {
       if (currentStep.control.kind !== "tags") return state;
+      if (state.answers.issues.length >= 2) return state;
 
       const tag = currentStep.control.tags.find(
         (candidate) => candidate.value === action.tag.value,
@@ -277,9 +294,23 @@ function createMachineReducer(scenario: Scenario, context: ScenarioContext) {
         currentStep.answerKey,
         text ? "provided" : "skipped",
       );
-      const answers: CheckinAnswers = text
-        ? { ...answersWithResponse, freeText: text }
-        : answersWithResponse;
+      const answers: CheckinAnswers = currentStep.control.target === "issue"
+        ? {
+            ...answersWithResponse,
+            issues: answersWithResponse.issues.map((issue, index) =>
+              index === answersWithResponse.issues.length - 1 && text
+                ? { ...issue, freeText: text }
+                : issue,
+            ),
+          }
+        : text ? {
+            ...answersWithResponse,
+            freeText: text,
+            issues: answersWithResponse.issues.length > 0
+              ? answersWithResponse.issues
+              : [{ tag: "other", freeText: text, triageLevel: "R2" }],
+            overallTriage: answersWithResponse.overallTriage ?? "R2",
+          } : answersWithResponse;
       const answeredState = appendUserMessage(
         { ...state, answers },
         text || currentStep.control.skipLabel,

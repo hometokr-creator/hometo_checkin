@@ -17,7 +17,7 @@ export async function resolveCheckinSession(
   if (session) return { status: "active", session };
 
   const status = MOCK_STATE_TOKENS[token];
-  if (status === "completed") return { status };
+  if (status === "completed") return { status, sessionId: "session-completed" };
   if (status === "expired") return { status };
   if (status === "error") return { status };
   return { status: "invalid" };

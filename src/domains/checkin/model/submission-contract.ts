@@ -26,6 +26,8 @@ function isIssue(value: unknown): value is CheckinIssue {
   if (!isRecord(value) || !ISSUE_TAGS.has(value.tag as CheckinIssueTag)) return false;
   if (!isTriageLevel(value.triageLevel)) return false;
   if (value.detail !== undefined && typeof value.detail !== "string") return false;
+  if (value.freeText !== undefined &&
+      (typeof value.freeText !== "string" || value.freeText.length > 500)) return false;
 
   return value.tag === "urgent"
     ? value.triageLevel === "R1"
