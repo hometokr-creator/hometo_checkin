@@ -33,6 +33,7 @@ test.describe("guest check-in", () => {
     await page.getByRole("button", { name: "공과금이 이상해요" }).click();
 
     await expect(page.getByRole("textbox", { name: "추가로 전할 내용" })).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "추가로 전할 내용" })).toHaveValue("");
     await expect(page.getByRole("button", { name: "네, 더 있어요" })).toHaveCount(0);
     await page.getByRole("button", { name: "건너뛰기" }).click();
     await expect(page.getByText("응답이 저장됐어요", { exact: false })).toBeVisible();
@@ -91,3 +92,63 @@ test("already completed sessions can submit interest with no topic selected", as
   await page.getByRole("button", { name: "선택 완료" }).click();
   await expect(page.getByText("고마워요! 준비되면 알려드릴게요 🙂")).toBeVisible();
 });
+
+test("every supported guest round completes through text and offers community interest", async ({ page }) => {
+  const cases = [
+    { token: "demo-onboarding", label: "네, 잘 적응하고 있어요", regular: true },
+    { token: "demo-monthly-first", label: "네, 잘 지냈어요", regular: true },
+    { token: "demo-renewal", label: "지금은 괜찮아요", regular: true },
+    { token: "demo-event-facility", label: "네, 이제 괜찮아요", regular: false },
+    { token: "demo-event-rule", label: "네, 괜찮아요", regular: false },
+  ];
+  for (const entry of cases) {
+    await page.goto(`/c/${entry.token}`);
+    if (entry.token === "demo-renewal") await page.getByRole("button", { name: "계속 살고 싶어요" }).click();
+    await page.getByRole("button", { name: entry.label, exact: true }).click();
+    if (entry.regular) await page.getByRole("button", { name: "그 외", exact: true }).click();
+    await expect(page.getByRole("textbox")).toBeVisible();
+    await page.getByRole("button", { name: "건너뛰기" }).click();
+    if (entry.regular) await page.getByRole("button", { name: "이게 다예요" }).click();
+    await expect(page.getByText("응답이 저장됐어요", { exact: false })).toBeVisible();
+    await expect(page.getByRole("button", { name: "궁금해요, 알려주세요" })).toBeVisible();
+  }
+});
+
+for (const width of [320, 390]) {
+  test(`mobile ${width}px renders local fonts, logo, urgent text and interest without overflow`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 740 });
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.goto("/c/demo-monthly");
+    await page.evaluate(() => document.fonts.ready);
+    const font = await page.locator("body").evaluate((body) => getComputedStyle(body).fontFamily);
+    expect(font).toMatch(/nanum/i);
+    const logo = page.getByRole("log").locator("img").first();
+    await expect(logo).toBeVisible();
+    await expect.poll(() => logo.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+    await page.getByRole("button", { name: "불편한 게 있어요" }).click();
+    await page.getByRole("button", { name: "안전·긴급" }).click();
+    await page.screenshot({ path: testInfo.outputPath("urgent-chips.png") });
+    await page.getByRole("button", { name: "그 외 (직접 입력)", exact: true }).click();
+    await expect(page.getByRole("textbox")).toBeVisible();
+    await page.getByRole("textbox").fill("상황 설명입니다. 담당 매니저의 도움이 필요해요.");
+    await page.screenshot({ path: testInfo.outputPath("urgent-text.png") });
+    await page.getByRole("button", { name: "보내기", exact: true }).click();
+    const interest = page.getByRole("button", { name: "궁금해요, 알려주세요" });
+    await interest.scrollIntoViewIfNeeded();
+    await expect(interest).toBeEnabled();
+    await page.screenshot({ path: testInfo.outputPath("community-card.png") });
+    await interest.click();
+    await page.getByRole("button", { name: "집주인과 지내기" }).click();
+    await page.screenshot({ path: testInfo.outputPath("community-topics.png") });
+    const overflows = await page.locator("main").evaluate((main) => {
+      const width = document.documentElement.clientWidth;
+      return [...main.querySelectorAll("button, textarea, h1, h2")].filter((element) => {
+        const rect = element.getBoundingClientRect();
+        return rect.left < 0 || rect.right > width + 1;
+      }).map((element) => element.textContent);
+    });
+    expect(overflows).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+}

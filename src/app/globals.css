@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* Local files are loaded once in app/layout.tsx. */
+@theme inline {
+  --font-sans: var(--font-nanum-square-round), "NanumSquareRound", -apple-system,
+    BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+}
+
 @theme {
   --breakpoint-3xl: 90rem; /* 1440px — 매물 그리드 4열 (설계 §8) */
 
@@ -39,10 +45,6 @@
   --shadow-toast: 0 0 8px 0 rgba(115, 118, 123, 0.23);
   --shadow-dropdown: 0 0 8px 0 rgba(46, 47, 49, 0.1);
 
-  /* 폰트 파일은 app/layout.tsx에서 로드합니다. */
-  --font-sans:
-    "Pretendard Variable", "Pretendard", -apple-system, BlinkMacSystemFont, system-ui,
-    "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
 
   /*
    * Figma 텍스트 스타일 → Tailwind text-* 유틸리티
