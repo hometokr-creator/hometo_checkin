@@ -33,3 +33,4 @@ export { ChatOptionButtons } from "./ui/chat-option-buttons";
 export { ChatTagGrid } from "./ui/chat-tag-grid";
 export { ChatTextInput } from "./ui/chat-text-input";
 
+export { CommunityTeaser } from "./ui/community-teaser";

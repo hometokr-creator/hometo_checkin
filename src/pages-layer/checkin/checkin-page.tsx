@@ -1,5 +1,5 @@
 import { resolveCheckinSession } from "@/domains/checkin";
-import { selectGuestScenario } from "@/features/run-checkin";
+import { CommunityTeaser, selectGuestScenario } from "@/features/run-checkin";
 import { CheckinChat } from "@/widgets/checkin-chat";
 
 import { CheckinStateScreen } from "./ui/checkin-state-screen";
@@ -26,6 +26,7 @@ export async function CheckinPage({ token }: CheckinPageProps) {
         <CheckinStateScreen
           title="이번 체크인은 이미 답변해 주셨어요"
           description="감사합니다 😊 이제 이 창을 닫으셔도 돼요."
+          action={<CommunityTeaser key={result.sessionId} sessionId={result.sessionId} />}
         />
       );
     case "expired":

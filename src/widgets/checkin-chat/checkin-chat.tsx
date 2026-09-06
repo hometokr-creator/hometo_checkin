@@ -3,6 +3,7 @@
 import type { CheckinSession } from "@/domains/checkin";
 import {
   ChatBubble,
+  CommunityTeaser,
   useCheckinMachine,
   type Scenario,
 } from "@/features/run-checkin";
@@ -40,6 +41,9 @@ export function CheckinChat({ session, scenario }: CheckinChatProps) {
         {state.transcript.map((message) => (
           <ChatBubble key={message.id} role={message.role} text={message.text} />
         ))}
+        {state.status === "completed" && (
+          <CommunityTeaser key={session.id} sessionId={session.id} />
+        )}
       </ChatScroll>
 
       <section className="shrink-0 border-t border-grayscale-200 bg-grayscale-0 px-5 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">

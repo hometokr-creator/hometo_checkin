@@ -44,7 +44,7 @@ export interface CheckinAnswers {
 
 export type ResolveCheckinSessionResult =
   | { status: "active"; session: CheckinSession }
-  | { status: "completed" }
+  | { status: "completed"; sessionId: string }
   | { status: "expired" }
   | { status: "invalid" }
   | { status: "error" };

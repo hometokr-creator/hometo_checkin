@@ -52,3 +52,42 @@ test.describe("guest check-in", () => {
     await expect(page.getByRole("textbox")).toHaveCount(0);
   });
 });
+
+test("positive monthly answers end in the independent community interest flow", async ({ page }) => {
+  const events: { type: string; clicked: boolean; topics: string[] }[] = [];
+  page.on("console", async (message) => {
+    if (message.text().startsWith("[mock:checkin-interest]")) {
+      events.push(await message.args()[1].jsonValue());
+    }
+  });
+  await page.goto("/c/demo-monthly");
+  await expect(page.getByRole("button", { name: "궁금해요, 알려주세요" })).toHaveCount(0);
+  await page.getByRole("button", { name: "네, 다 괜찮아요" }).click();
+  await expect(page.getByText("다행이에요! 혹시 아주 사소하게라도 신경 쓰였던 건 없으셨어요?")).toBeVisible();
+  await page.getByRole("button", { name: "그 외", exact: true }).click();
+  await page.getByRole("button", { name: "건너뛰기" }).click();
+  await page.getByRole("button", { name: "이게 다예요" }).click();
+  await expect(page.getByText("응답이 저장됐어요", { exact: false })).toBeVisible();
+  const teaser = page.getByRole("region", { name: "나만 이런가? 다른 분들은 어떻게 지내는지 궁금하셨죠?" });
+  await teaser.scrollIntoViewIfNeeded();
+  await expect.poll(() => events.filter((event) => event.type === "exposed").length).toBe(1);
+  expect(events[0].clicked).toBe(false);
+  await teaser.getByRole("button", { name: "궁금해요, 알려주세요" }).click();
+  await teaser.getByRole("button", { name: "주방·요리" }).click();
+  await teaser.getByRole("button", { name: "청소·위생" }).click();
+  await expect(teaser.getByRole("button", { name: "주방·요리" })).toHaveAttribute("aria-pressed", "true");
+  await teaser.getByRole("button", { name: "선택 완료" }).click();
+  await expect(teaser.getByText("고마워요! 준비되면 알려드릴게요 🙂")).toBeVisible();
+  await expect.poll(() => events.length).toBe(3);
+  expect(events[2].topics).toEqual(["kitchen", "cleaning"]);
+  await expect(page.getByText("응답이 저장됐어요", { exact: false })).toHaveCount(1);
+  await expect(page.getByRole("log").getByText("다음 달에 또 가볍게 여쭤볼게요", { exact: false })).toHaveCount(1);
+});
+
+test("already completed sessions can submit interest with no topic selected", async ({ page }) => {
+  await page.goto("/c/demo-completed");
+  await expect(page.getByRole("heading", { name: "이번 체크인은 이미 답변해 주셨어요" })).toBeVisible();
+  await page.getByRole("button", { name: "궁금해요, 알려주세요" }).click();
+  await page.getByRole("button", { name: "선택 완료" }).click();
+  await expect(page.getByText("고마워요! 준비되면 알려드릴게요 🙂")).toBeVisible();
+});

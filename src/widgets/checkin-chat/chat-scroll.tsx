@@ -11,6 +11,7 @@ const AUTO_SCROLL_THRESHOLD = 72;
 
 export function ChatScroll({ children, messageCount }: ChatScrollProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const shouldFollowRef = useRef(true);
 
   useEffect(() => {
@@ -23,6 +24,22 @@ export function ChatScroll({ children, messageCount }: ChatScrollProps) {
 
     return () => cancelAnimationFrame(frame);
   }, [messageCount]);
+
+  useEffect(() => {
+    const content = contentRef.current;
+    if (!content || typeof ResizeObserver === "undefined") return;
+    let frame = 0;
+    const observer = new ResizeObserver(() => {
+      if (!shouldFollowRef.current) return;
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const container = containerRef.current;
+        if (container) container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+      });
+    });
+    observer.observe(content);
+    return () => { observer.disconnect(); cancelAnimationFrame(frame); };
+  }, []);
 
   const handleScroll = (event: UIEvent<HTMLDivElement>) => {
     const container = event.currentTarget;
@@ -41,7 +58,7 @@ export function ChatScroll({ children, messageCount }: ChatScrollProps) {
       aria-relevant="additions"
       aria-label="체크인 대화"
     >
-      <div className="mx-auto flex w-full max-w-[480px] flex-col gap-4">{children}</div>
+      <div ref={contentRef} className="mx-auto flex w-full max-w-[480px] flex-col gap-4">{children}</div>
     </div>
   );
 }

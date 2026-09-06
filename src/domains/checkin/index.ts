@@ -23,3 +23,6 @@ export type {
   RoundType,
   TriageLevel,
 } from "./model";
+export { recordCheckinInterest } from "./api/record-checkin-interest";
+export { CHECKIN_INTEREST_TOPICS } from "./model/checkin-interest";
+export type { CheckinInterestEvent, CheckinInterestRecord, CheckinInterestTopic } from "./model/checkin-interest";
