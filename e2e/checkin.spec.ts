@@ -24,6 +24,8 @@ test.describe("guest check-in", () => {
     await page.getByRole("button", { name: "불편한 게 있어요" }).click();
     await page.getByRole("button", { name: "시설·수리" }).click();
     await page.getByRole("button", { name: "누수·물샘" }).click();
+    await page.getByRole("textbox", { name: "추가로 전할 내용" }).fill("천장에서 물이 떨어져요");
+    await page.getByRole("button", { name: "보내기", exact: true }).click();
     await page.getByRole("button", { name: "네, 더 있어요" }).click();
 
     await expect(page.getByRole("button", { name: "시설·수리" })).toHaveCount(0);
@@ -36,11 +38,14 @@ test.describe("guest check-in", () => {
     await expect(page.getByText("응답이 저장됐어요", { exact: false })).toBeVisible();
   });
 
-  test("submits an urgent issue without extra questions", async ({ page }) => {
+  test("collects urgent detail and text without the additional issue loop", async ({ page }) => {
     await page.goto("/c/demo-monthly");
 
     await page.getByRole("button", { name: "불편한 게 있어요" }).click();
     await page.getByRole("button", { name: "안전·긴급" }).click();
+    await page.getByRole("button", { name: "가스·누전" }).click();
+    await expect(page.getByRole("textbox")).toBeVisible();
+    await page.getByRole("button", { name: "건너뛰기" }).click();
 
     await expect(page.getByText("바로 확인해서", { exact: false })).toBeVisible();
     await expect(page.getByText("응답이 저장됐어요", { exact: false })).toBeVisible();

@@ -90,14 +90,14 @@ function advance(
 ): CheckinMachineState {
   if (next.type === "complete-from-answers") {
     const issues = state.answers.issues.filter(
-      (issue) => issue.tag !== "other" || Boolean(state.answers.freeText?.trim()),
+      (issue) => issue.tag !== "other" || Boolean(issue.freeText?.trim() || state.answers.freeText?.trim()),
     );
     const overallTriage = getOverallTriageLevel(issues);
     return advance(
       { ...state, answers: { ...state.answers, issues, overallTriage } },
       {
         type: "complete",
-        outcome: overallTriage === "R1" ? "urgent" : issues.length > 0 ? "reported" : "ok",
+        outcome: overallTriage === "R1" ? "urgent" : issues.length > 0 || state.answers.freeText ? "reported" : "ok",
       },
       scenario,
       context,
@@ -218,6 +218,7 @@ export function createMachineReducer(scenario: Scenario, context: ScenarioContex
 
     if (action.type === "select-tag") {
       if (currentStep.control.kind !== "tags") return state;
+      if (state.answers.issues.length >= 2) return state;
 
       const tag = currentStep.control.tags.find(
         (candidate) => candidate.value === action.tag.value,
@@ -293,9 +294,23 @@ export function createMachineReducer(scenario: Scenario, context: ScenarioContex
         currentStep.answerKey,
         text ? "provided" : "skipped",
       );
-      const answers: CheckinAnswers = text
-        ? { ...answersWithResponse, freeText: text }
-        : answersWithResponse;
+      const answers: CheckinAnswers = currentStep.control.target === "issue"
+        ? {
+            ...answersWithResponse,
+            issues: answersWithResponse.issues.map((issue, index) =>
+              index === answersWithResponse.issues.length - 1 && text
+                ? { ...issue, freeText: text }
+                : issue,
+            ),
+          }
+        : text ? {
+            ...answersWithResponse,
+            freeText: text,
+            issues: answersWithResponse.issues.length > 0
+              ? answersWithResponse.issues
+              : [{ tag: "other", freeText: text, triageLevel: "R2" }],
+            overallTriage: answersWithResponse.overallTriage ?? "R2",
+          } : answersWithResponse;
       const answeredState = appendUserMessage(
         { ...state, answers },
         text || currentStep.control.skipLabel,

@@ -47,6 +47,8 @@ describe("guest answer flow", () => {
       expect(run.state.currentStepId).toBe("q_tag_soft");
       run.tag("other");
       run.text("  ");
+      expect(run.state.currentStepId).toBe("q_more");
+      run.option("no");
       expect(run.state.pendingOutcome).toBe("ok");
       expect(run.state.answers.issues).toEqual([]);
       expect(run.state.answers.overallTriage).toBeUndefined();
@@ -59,6 +61,7 @@ describe("guest answer flow", () => {
     run.option("ok");
     run.tag("other");
     run.text("  생활에 불편함이 있어요  ");
+    run.option("no");
     expect(run.state.pendingOutcome).toBe("reported");
     expect(run.state.answers.issues).toHaveLength(1);
     expect(run.state.answers.overallTriage).toBe("R2");
@@ -70,5 +73,95 @@ describe("guest answer flow", () => {
     run.text("");
     expect(run.state.pendingOutcome).toBe("reported");
     expect(run.state.answers.issues).toEqual([{ tag: "other", triageLevel: "R2" }]);
+  });
+});
+
+describe("per-issue free text", () => {
+  it("collects text before the loop and preserves both issue descriptions", () => {
+    const run = machine();
+    run.option("issue");
+    run.tag("facility");
+    run.detail("leak");
+    expect(run.state.currentStepId).toBe("q_free");
+    run.text("첫 번째: 천장 누수");
+    expect(run.state.currentStepId).toBe("q_more");
+    run.option("yes");
+    const beforeDuplicate = run.state;
+    run.tag("facility");
+    expect(run.state).toBe(beforeDuplicate);
+    run.tag("settlement");
+    run.detail("free");
+    expect(run.state.currentStepId).toBe("q_free2");
+    run.text("두 번째: 관리비 문의");
+    expect(run.state.status).toBe("submitting");
+    expect(run.state.answers.freeText).toBeUndefined();
+    expect(run.state.answers.issues.map((issue) => issue.freeText)).toEqual([
+      "첫 번째: 천장 누수", "두 번째: 관리비 문의",
+    ]);
+    expect(isCheckinSubmission({ schemaVersion: 1, sessionId: "test", idempotencyKey: "two", answers: run.state.answers })).toBe(true);
+  });
+
+  it.each(["facility", "relationship", "settlement"] as const)("%s none and free both lead to text before the loop", (tag) => {
+    for (const detail of ["none", "free"]) {
+      const run = machine();
+      run.option("issue");
+      run.tag(tag);
+      run.detail(detail);
+      expect(run.state.currentStepId).toBe("q_free");
+      run.text("");
+      expect(run.state.currentStepId).toBe("q_more");
+      run.option("no");
+      expect(run.state.pendingOutcome).toBe("reported");
+      expect(run.state.answers.issues[0].detail).toBe(detail);
+    }
+  });
+
+  it.each(["gas-electricity", "unlocked-door", "personal-safety", "immediate-help", "none", "free"])("urgent %s collects text and never loops", (detail) => {
+    const run = machine();
+    run.option("ok");
+    run.tag("urgent");
+    expect(run.state.answers.overallTriage).toBe("R1");
+    expect(run.state.status).toBe("active");
+    run.detail(detail);
+    expect(run.state.currentStepId).toBe("q_free_urgent");
+    run.text(detail === "none" ? "" : "현관에 도움이 필요해요");
+    expect(run.state.pendingOutcome).toBe("urgent");
+    expect(run.state.transcript.some((message) => message.text.includes("혹시 다른 불편"))).toBe(false);
+  });
+
+  it("keeps the first description when the second issue is urgent", () => {
+    const run = machine();
+    run.option("issue");
+    run.tag("facility");
+    run.detail("leak");
+    run.text("첫 번째 설명");
+    run.option("yes");
+    run.tag("urgent");
+    run.detail("free");
+    run.text("긴급 설명");
+    expect(run.state.pendingOutcome).toBe("urgent");
+    expect(run.state.answers.issues.map((issue) => issue.freeText)).toEqual(["첫 번째 설명", "긴급 설명"]);
+  });
+
+  it("does not mistake another issue's description for an empty other report", () => {
+    const run = machine();
+    run.option("ok");
+    run.tag("other");
+    run.text("");
+    run.option("yes");
+    run.tag("urgent");
+    run.detail("none");
+    run.text("긴급한 상황");
+    expect(run.state.answers.issues.map((issue) => issue.tag)).toEqual(["urgent"]);
+  });
+
+  it("offers free text for positive event responses and classifies written concerns", () => {
+    for (const text of ["", "다른 문의가 있어요"]) {
+      const run = machine(ruleEventScenario);
+      run.option("understood");
+      expect(run.state.currentStepId).toBe("q_free_ok");
+      run.text(text);
+      expect(run.state.pendingOutcome).toBe(text ? "reported" : "ok");
+    }
   });
 });

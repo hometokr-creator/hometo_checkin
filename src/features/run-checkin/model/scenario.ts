@@ -48,6 +48,7 @@ export interface ChipControl {
 }
 
 export interface TextControl {
+  target?: "issue" | "checkin";
   kind: "text";
   maxLength: number;
   placeholder: string;

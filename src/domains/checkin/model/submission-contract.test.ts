@@ -79,3 +79,24 @@ describe("check-in submission contract", () => {
     );
   });
 });
+
+it("validates each issue's free text independently", () => {
+  const submission = {
+    ...validSubmission,
+    answers: {
+      responses: {},
+      issues: [
+        { tag: "facility", freeText: "가".repeat(500), triageLevel: "R2" },
+        { tag: "urgent", detail: "free", freeText: "나".repeat(500), triageLevel: "R1" },
+      ],
+      overallTriage: "R1",
+    },
+  };
+  expect(isCheckinSubmission(submission)).toBe(true);
+  for (const freeText of [123, "가".repeat(501)]) {
+    expect(isCheckinSubmission({
+      ...submission,
+      answers: { ...submission.answers, issues: [{ tag: "urgent", triageLevel: "R1", freeText }] },
+    })).toBe(false);
+  }
+});

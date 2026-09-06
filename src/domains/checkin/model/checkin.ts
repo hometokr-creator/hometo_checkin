@@ -31,6 +31,7 @@ export type TriageLevel = "R1" | "R2";
 export interface CheckinIssue {
   tag: CheckinIssueTag;
   detail?: string;
+  freeText?: string;
   triageLevel: TriageLevel;
 }
 
