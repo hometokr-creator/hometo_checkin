@@ -71,11 +71,11 @@ export function CheckinChat({ session, scenario }: CheckinChatProps) {
           {state.status === "error" && (
             <div role="alert">
               <p className="mb-3 text-center text-body-2 text-system-error">
-                답변을 저장하지 못했어요. 입력한 내용은 그대로 보관하고 있어요.
+                {state.errorCode === "expired" ? "응답 기간이 지나 저장할 수 없어요." : state.errorCode === "conflict" ? "다른 창에서 이미 응답을 제출했어요. 다시 접속해 주세요." : state.errorCode === "invalid" ? "접근이 만료됐어요. 안내받은 링크로 다시 접속해 주세요." : state.errorCode === "invalid-answer" ? "응답을 확인할 수 없어요. 안내받은 링크로 다시 접속해 주세요." : "답변을 저장하지 못했어요. 입력한 내용은 그대로 보관하고 있어요."}
               </p>
-              <BtnCta className="w-full" size="l" onClick={retrySubmit}>
+              {!["expired", "conflict", "invalid", "invalid-answer", "unsupported"].includes(state.errorCode ?? "") && <BtnCta className="w-full" size="l" onClick={retrySubmit}>
                 다시 시도
-              </BtnCta>
+              </BtnCta>}
             </div>
           )}
         </div>

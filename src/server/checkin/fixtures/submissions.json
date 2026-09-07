@@ -1,0 +1,107 @@
+[
+  {
+    "schemaVersion": 1,
+    "sessionId": "example-monthly-two",
+    "idempotencyKey": "example-monthly-two:monthly-guest:v1",
+    "answers": {
+      "responses": {
+        "monthlyStatus": "issue",
+        "issueTag": "facility",
+        "issueDetail": "leak",
+        "issueFreeText": "provided",
+        "hasAnotherIssue": "yes",
+        "secondIssueTag": "settlement",
+        "secondIssueDetail": "utilities",
+        "secondIssueFreeText": "provided"
+      },
+      "issues": [
+        {
+          "tag": "facility",
+          "detail": "leak",
+          "freeText": "천장에서 물이 떨어져요.",
+          "triageLevel": "R2"
+        },
+        {
+          "tag": "settlement",
+          "detail": "utilities",
+          "freeText": "이번 달 공과금 내역을 확인하고 싶어요.",
+          "triageLevel": "R2"
+        }
+      ],
+      "overallTriage": "R2"
+    }
+  },
+  {
+    "schemaVersion": 1,
+    "sessionId": "example-monthly-ok",
+    "idempotencyKey": "example-monthly-ok:monthly-guest:v1",
+    "answers": {
+      "responses": {
+        "monthlyStatus": "ok",
+        "issueTag": "other",
+        "issueFreeText": "skipped",
+        "hasAnotherIssue": "no"
+      },
+      "issues": []
+    }
+  },
+  {
+    "schemaVersion": 1,
+    "sessionId": "example-urgent",
+    "idempotencyKey": "example-urgent:monthly-guest:v1",
+    "answers": {
+      "responses": {
+        "monthlyStatus": "issue",
+        "issueTag": "urgent",
+        "urgentDetail": "unlocked-door",
+        "urgentFreeText": "skipped"
+      },
+      "issues": [
+        {
+          "tag": "urgent",
+          "detail": "unlocked-door",
+          "triageLevel": "R1"
+        }
+      ],
+      "overallTriage": "R1"
+    }
+  },
+  {
+    "schemaVersion": 1,
+    "sessionId": "example-rule-help",
+    "idempotencyKey": "example-rule-help:rule-event-guest:v1",
+    "answers": {
+      "responses": {
+        "ruleEventStatus": "needs-help",
+        "freeText": "skipped"
+      },
+      "issues": [
+        {
+          "tag": "other",
+          "triageLevel": "R2"
+        }
+      ],
+      "overallTriage": "R2"
+    }
+  },
+  {
+    "schemaVersion": 1,
+    "sessionId": "example-facility-comment",
+    "idempotencyKey": "example-facility-comment:facility-event-guest:v1",
+    "answers": {
+      "responses": {
+        "facilityEventStatus": "resolved",
+        "freeText": "provided"
+      },
+      "issues": [
+        {
+          "tag": "other",
+          "freeText": "생활 규칙에 대해 문의하고 싶어요.",
+          "triageLevel": "R2"
+        }
+      ],
+      "freeText": "생활 규칙에 대해 문의하고 싶어요.",
+      "overallTriage": "R2"
+    }
+  }
+]

@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { recordCheckinInterest } from "./record-checkin-interest";
-import { submitCheckinAnswer } from "./submit-answer";
 import type { CheckinInterestEvent } from "../model/checkin-interest";
 
 vi.spyOn(console, "info").mockImplementation(() => {});
@@ -36,12 +35,6 @@ describe("community interest mock boundary", () => {
     const done = await recordCheckinInterest({ sessionId, type: "topics-submitted", topics: [] });
     expect(done.topics).toEqual([]);
     expect(done.topicsSubmittedAt).toBeDefined();
-  });
-
-  it("does not consume survey submission keys", async () => {
-    const sessionId = "separate-submission";
-    await recordCheckinInterest({ sessionId, type: "clicked" });
-    await expect(submitCheckinAnswer({ schemaVersion: 1, sessionId, idempotencyKey: `${sessionId}:monthly-guest:v1`, answers: { responses: {}, issues: [] } })).resolves.toEqual({ status: "accepted" });
   });
 
   it("rejects invalid topics and topic submission before a click", async () => {

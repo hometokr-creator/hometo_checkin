@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { submitCheckinAnswer } from "../api/submit-answer";
 import type { CheckinSubmission } from "./checkin";
-import { isCheckinSubmission } from "./submission-contract";
+import { assertCheckinSubmission, isCheckinSubmission } from "./submission-contract";
 
 const validSubmission: CheckinSubmission = {
   schemaVersion: 1,
@@ -59,25 +58,10 @@ describe("check-in submission contract", () => {
     ).toBe(false);
   });
 
-  it("accepts a submission once and treats the same key as a duplicate", async () => {
-    await expect(submitCheckinAnswer(validSubmission)).resolves.toEqual({
-      status: "accepted",
-    });
-    await expect(submitCheckinAnswer(validSubmission)).resolves.toEqual({
-      status: "duplicate",
-    });
+  it("rejects invalid payloads with the client shape validator", () => {
+    expect(()=>assertCheckinSubmission({...validSubmission,schemaVersion:2})).toThrow("Invalid check-in submission payload");
   });
 
-  it("blocks invalid payloads at the submission boundary", async () => {
-    const invalidSubmission = {
-      ...validSubmission,
-      schemaVersion: 2,
-    } as unknown as CheckinSubmission;
-
-    await expect(submitCheckinAnswer(invalidSubmission)).rejects.toThrow(
-      "Invalid check-in submission payload",
-    );
-  });
 });
 
 it("validates each issue's free text independently", () => {

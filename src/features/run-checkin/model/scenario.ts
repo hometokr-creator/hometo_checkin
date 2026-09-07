@@ -93,5 +93,6 @@ export interface CheckinMachineState {
   transcript: TranscriptMessage[];
   answers: CheckinAnswers;
   nextMessageId: number;
+  errorCode?: string;
 }
 

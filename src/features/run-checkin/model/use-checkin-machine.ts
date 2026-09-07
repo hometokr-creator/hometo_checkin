@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useReducer } from "react";
+import { CheckinApiError } from "@/domains/checkin/api/http";
 
 import {
   getCheckinDetailOptions,
@@ -31,8 +32,8 @@ type MachineAction =
   | { type: "select-tag"; tag: CheckinTagOption }
   | { type: "select-detail"; detail: CheckinDetailOption }
   | { type: "submit-text"; text: string }
-  | { type: "submit-succeeded" }
-  | { type: "submit-failed" }
+  | { type: "submit-succeeded"; outcome?: "ok" | "reported" | "urgent"; completionMessage?: string }
+  | { type: "submit-failed"; errorCode?: string }
   | { type: "retry-submit" };
 
 function interpolate(text: string, context: ScenarioContext) {
@@ -155,7 +156,7 @@ export function createMachineReducer(scenario: Scenario, context: ScenarioContex
     if (action.type === "submit-succeeded") {
       if (state.status !== "submitting" || !state.pendingOutcome) return state;
 
-      const completionMessage = scenario.completionMessages[state.pendingOutcome];
+      const completionMessage = scenario.completionMessages[action.outcome ?? state.pendingOutcome];
       return {
         ...state,
         status: "completed",
@@ -164,7 +165,7 @@ export function createMachineReducer(scenario: Scenario, context: ScenarioContex
           {
             id: `message-${state.nextMessageId}`,
             role: "bot",
-            text: interpolate(completionMessage.text, context),
+            text: interpolate(action.completionMessage ?? completionMessage.text, context),
           },
         ],
         nextMessageId: state.nextMessageId + 1,
@@ -172,7 +173,7 @@ export function createMachineReducer(scenario: Scenario, context: ScenarioContex
     }
 
     if (action.type === "submit-failed") {
-      return state.status === "submitting" ? { ...state, status: "error" } : state;
+      return state.status === "submitting" ? { ...state, status: "error", errorCode: action.errorCode } : state;
     }
 
     if (action.type === "retry-submit") {
@@ -347,11 +348,11 @@ export function useCheckinMachine({ scenario, session }: UseCheckinMachineOption
       idempotencyKey: `${session.id}:${scenario.id}:v1`,
       answers: state.answers,
     })
-      .then(() => {
-        if (isCurrent) dispatch({ type: "submit-succeeded" });
+      .then((result) => {
+        if (isCurrent) dispatch({ type: "submit-succeeded", outcome: result.outcome, completionMessage: result.completionMessage });
       })
-      .catch(() => {
-        if (isCurrent) dispatch({ type: "submit-failed" });
+      .catch((error: unknown) => {
+        if (isCurrent) dispatch({ type: "submit-failed", errorCode: error instanceof CheckinApiError ? error.code : undefined });
       });
 
     return () => {
