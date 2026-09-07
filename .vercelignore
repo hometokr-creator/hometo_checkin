@@ -1,0 +1,11 @@
+.git
+.env*
+.next
+node_modules
+*.tsbuildinfo
+.eslintcache
+artifacts
+playwright-report
+test-results
+supabase/.temp
+supabase/.branches

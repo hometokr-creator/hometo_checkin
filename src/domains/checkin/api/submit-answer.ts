@@ -1,17 +1,17 @@
-import type { CheckinSubmission } from "../model";
-import { assertCheckinSubmission } from "../model";
-
-const submittedKeys = new Set<string>();
-
+import type { CheckinSubmission } from "../model/checkin";
+import { checkinRequest } from "./http";
 export interface SubmitAnswerResult {
   status: "accepted" | "duplicate";
+  outcome: "ok" | "reported" | "urgent";
+  completionMessage: string;
 }
-
-export async function submitCheckinAnswer(
+export function submitCheckinAnswer(
   submission: CheckinSubmission,
 ): Promise<SubmitAnswerResult> {
-  assertCheckinSubmission(submission);
-  if (submittedKeys.has(submission.idempotencyKey)) return { status: "duplicate" };
-  submittedKeys.add(submission.idempotencyKey);
-  return { status: "accepted" };
+  return checkinRequest(
+    "/api/checkin/sessions/" +
+      encodeURIComponent(submission.sessionId) +
+      "/answer",
+    submission,
+  );
 }

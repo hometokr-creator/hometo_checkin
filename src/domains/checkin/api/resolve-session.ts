@@ -1,24 +1,24 @@
-import type { ResolveCheckinSessionResult } from "../model";
-import { MOCK_SESSIONS } from "./mock-sessions";
-
-type NonActiveStatus = Exclude<ResolveCheckinSessionResult["status"], "active">;
-
-const MOCK_STATE_TOKENS: Record<string, NonActiveStatus> = {
-  "demo-completed": "completed",
-  "demo-expired": "expired",
-  "demo-invalid": "invalid",
-  "demo-error": "error",
-};
-
+import type { ResolveCheckinSessionResult } from "../model/checkin";
+import { checkinRequest, CheckinApiError } from "./http";
 export async function resolveCheckinSession(
   token: string,
 ): Promise<ResolveCheckinSessionResult> {
-  const session = MOCK_SESSIONS[token as keyof typeof MOCK_SESSIONS];
-  if (session) return { status: "active", session };
-
-  const status = MOCK_STATE_TOKENS[token];
-  if (status === "completed") return { status, sessionId: "session-completed" };
-  if (status === "expired") return { status };
-  if (status === "error") return { status };
-  return { status: "invalid" };
+  try {
+    const { sessionId } = await checkinRequest<{ sessionId: string }>(
+      "/api/checkin/access",
+      { token },
+    );
+    return await checkinRequest<ResolveCheckinSessionResult>(
+      "/api/checkin/session?sessionId=" + encodeURIComponent(sessionId),
+    );
+  } catch (error) {
+    if (error instanceof CheckinApiError && error.code === "expired")
+      return { status: "expired" };
+    if (
+      error instanceof CheckinApiError &&
+      ["invalid", "unsupported"].includes(error.code)
+    )
+      return { status: "invalid" };
+    return { status: "error" };
+  }
 }

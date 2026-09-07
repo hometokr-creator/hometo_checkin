@@ -13,6 +13,10 @@
 
 # local environment
 .env*
+!.env.example
+/supabase/.temp/
+/supabase/.branches/
+/artifacts/private/
 
 # logs
 npm-debug.log*
@@ -31,3 +35,4 @@ Thumbs.db
 # tests
 /playwright-report/
 /test-results/
+.vercel

@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useReducer } from "react";
+import { useCheckinProgress } from "./use-checkin-progress";
+import { CheckinApiError } from "@/domains/checkin/api/http";
 
 import {
   getCheckinDetailOptions,
@@ -31,8 +33,12 @@ type MachineAction =
   | { type: "select-tag"; tag: CheckinTagOption }
   | { type: "select-detail"; detail: CheckinDetailOption }
   | { type: "submit-text"; text: string }
-  | { type: "submit-succeeded" }
-  | { type: "submit-failed" }
+  | {
+      type: "submit-succeeded";
+      outcome?: "ok" | "reported" | "urgent";
+      completionMessage?: string;
+    }
+  | { type: "submit-failed"; errorCode?: string }
   | { type: "retry-submit" };
 
 function interpolate(text: string, context: ScenarioContext) {
@@ -45,7 +51,10 @@ function createInitialAnswers(): CheckinAnswers {
   return { responses: {}, issues: [] };
 }
 
-export function createInitialState(scenario: Scenario, context: ScenarioContext): CheckinMachineState {
+export function createInitialState(
+  scenario: Scenario,
+  context: ScenarioContext,
+): CheckinMachineState {
   const entry = scenario.steps[scenario.entry];
 
   if (!entry) {
@@ -67,7 +76,10 @@ export function createInitialState(scenario: Scenario, context: ScenarioContext)
   };
 }
 
-function appendUserMessage(state: CheckinMachineState, text: string): CheckinMachineState {
+function appendUserMessage(
+  state: CheckinMachineState,
+  text: string,
+): CheckinMachineState {
   return {
     ...state,
     transcript: [
@@ -90,14 +102,21 @@ function advance(
 ): CheckinMachineState {
   if (next.type === "complete-from-answers") {
     const issues = state.answers.issues.filter(
-      (issue) => issue.tag !== "other" || Boolean(issue.freeText?.trim() || state.answers.freeText?.trim()),
+      (issue) =>
+        issue.tag !== "other" ||
+        Boolean(issue.freeText?.trim() || state.answers.freeText?.trim()),
     );
     const overallTriage = getOverallTriageLevel(issues);
     return advance(
       { ...state, answers: { ...state.answers, issues, overallTriage } },
       {
         type: "complete",
-        outcome: overallTriage === "R1" ? "urgent" : issues.length > 0 || state.answers.freeText ? "reported" : "ok",
+        outcome:
+          overallTriage === "R1"
+            ? "urgent"
+            : issues.length > 0 || state.answers.freeText
+              ? "reported"
+              : "ok",
       },
       scenario,
       context,
@@ -150,12 +169,19 @@ function updateResponses(
   };
 }
 
-export function createMachineReducer(scenario: Scenario, context: ScenarioContext) {
-  return (state: CheckinMachineState, action: MachineAction): CheckinMachineState => {
+export function createMachineReducer(
+  scenario: Scenario,
+  context: ScenarioContext,
+) {
+  return (
+    state: CheckinMachineState,
+    action: MachineAction,
+  ): CheckinMachineState => {
     if (action.type === "submit-succeeded") {
       if (state.status !== "submitting" || !state.pendingOutcome) return state;
 
-      const completionMessage = scenario.completionMessages[state.pendingOutcome];
+      const completionMessage =
+        scenario.completionMessages[action.outcome ?? state.pendingOutcome];
       return {
         ...state,
         status: "completed",
@@ -164,7 +190,10 @@ export function createMachineReducer(scenario: Scenario, context: ScenarioContex
           {
             id: `message-${state.nextMessageId}`,
             role: "bot",
-            text: interpolate(completionMessage.text, context),
+            text: interpolate(
+              action.completionMessage ?? completionMessage.text,
+              context,
+            ),
           },
         ],
         nextMessageId: state.nextMessageId + 1,
@@ -172,11 +201,15 @@ export function createMachineReducer(scenario: Scenario, context: ScenarioContex
     }
 
     if (action.type === "submit-failed") {
-      return state.status === "submitting" ? { ...state, status: "error" } : state;
+      return state.status === "submitting"
+        ? { ...state, status: "error", errorCode: action.errorCode }
+        : state;
     }
 
     if (action.type === "retry-submit") {
-      return state.status === "error" ? { ...state, status: "submitting" } : state;
+      return state.status === "error"
+        ? { ...state, status: "submitting" }
+        : state;
     }
 
     if (state.status !== "active" || !state.currentStepId) return state;
@@ -192,7 +225,11 @@ export function createMachineReducer(scenario: Scenario, context: ScenarioContex
       );
       if (!option) return state;
 
-      const answers = updateResponses(state.answers, currentStep.answerKey, option.value);
+      const answers = updateResponses(
+        state.answers,
+        currentStep.answerKey,
+        option.value,
+      );
       const issues = option.presetIssueTag
         ? [
             ...answers.issues,
@@ -236,7 +273,11 @@ export function createMachineReducer(scenario: Scenario, context: ScenarioContex
         triageLevel: getIssueTriageLevel(tag.value),
       };
       const issues = [...state.answers.issues, issue];
-      const answers = updateResponses(state.answers, currentStep.answerKey, tag.value);
+      const answers = updateResponses(
+        state.answers,
+        currentStep.answerKey,
+        tag.value,
+      );
       const answeredState = appendUserMessage(
         {
           ...state,
@@ -276,13 +317,22 @@ export function createMachineReducer(scenario: Scenario, context: ScenarioContex
         {
           ...state,
           answers: {
-            ...updateResponses(state.answers, currentStep.answerKey, detail.value),
+            ...updateResponses(
+              state.answers,
+              currentStep.answerKey,
+              detail.value,
+            ),
             issues,
           },
         },
         detail.label,
       );
-      return advance(answeredState, currentStep.control.next, scenario, context);
+      return advance(
+        answeredState,
+        currentStep.control.next,
+        scenario,
+        context,
+      );
     }
 
     if (action.type === "submit-text") {
@@ -294,35 +344,47 @@ export function createMachineReducer(scenario: Scenario, context: ScenarioContex
         currentStep.answerKey,
         text ? "provided" : "skipped",
       );
-      const answers: CheckinAnswers = currentStep.control.target === "issue"
-        ? {
-            ...answersWithResponse,
-            issues: answersWithResponse.issues.map((issue, index) =>
-              index === answersWithResponse.issues.length - 1 && text
-                ? { ...issue, freeText: text }
-                : issue,
-            ),
-          }
-        : text ? {
-            ...answersWithResponse,
-            freeText: text,
-            issues: answersWithResponse.issues.length > 0
-              ? answersWithResponse.issues
-              : [{ tag: "other", freeText: text, triageLevel: "R2" }],
-            overallTriage: answersWithResponse.overallTriage ?? "R2",
-          } : answersWithResponse;
+      const answers: CheckinAnswers =
+        currentStep.control.target === "issue"
+          ? {
+              ...answersWithResponse,
+              issues: answersWithResponse.issues.map((issue, index) =>
+                index === answersWithResponse.issues.length - 1 && text
+                  ? { ...issue, freeText: text }
+                  : issue,
+              ),
+            }
+          : text
+            ? {
+                ...answersWithResponse,
+                freeText: text,
+                issues:
+                  answersWithResponse.issues.length > 0
+                    ? answersWithResponse.issues
+                    : [{ tag: "other", freeText: text, triageLevel: "R2" }],
+                overallTriage: answersWithResponse.overallTriage ?? "R2",
+              }
+            : answersWithResponse;
       const answeredState = appendUserMessage(
         { ...state, answers },
         text || currentStep.control.skipLabel,
       );
-      return advance(answeredState, currentStep.control.next, scenario, context);
+      return advance(
+        answeredState,
+        currentStep.control.next,
+        scenario,
+        context,
+      );
     }
 
     return state;
   };
 }
 
-export function useCheckinMachine({ scenario, session }: UseCheckinMachineOptions) {
+export function useCheckinMachine({
+  scenario,
+  session,
+}: UseCheckinMachineOptions) {
   const context: ScenarioContext = {
     name: session.displayName ?? "입주자",
     eventItemName:
@@ -336,6 +398,8 @@ export function useCheckinMachine({ scenario, session }: UseCheckinMachineOption
     () => createInitialState(scenario, context),
   );
 
+  useCheckinProgress(session.id, scenario.id, state.currentStepId);
+
   useEffect(() => {
     if (state.status !== "submitting" || !state.pendingOutcome) return;
 
@@ -347,17 +411,33 @@ export function useCheckinMachine({ scenario, session }: UseCheckinMachineOption
       idempotencyKey: `${session.id}:${scenario.id}:v1`,
       answers: state.answers,
     })
-      .then(() => {
-        if (isCurrent) dispatch({ type: "submit-succeeded" });
+      .then((result) => {
+        if (isCurrent)
+          dispatch({
+            type: "submit-succeeded",
+            outcome: result.outcome,
+            completionMessage: result.completionMessage,
+          });
       })
-      .catch(() => {
-        if (isCurrent) dispatch({ type: "submit-failed" });
+      .catch((error: unknown) => {
+        if (isCurrent)
+          dispatch({
+            type: "submit-failed",
+            errorCode:
+              error instanceof CheckinApiError ? error.code : undefined,
+          });
       });
 
     return () => {
       isCurrent = false;
     };
-  }, [scenario.id, session.id, state.answers, state.pendingOutcome, state.status]);
+  }, [
+    scenario.id,
+    session.id,
+    state.answers,
+    state.pendingOutcome,
+    state.status,
+  ]);
 
   const currentStep = state.currentStepId
     ? scenario.steps[state.currentStepId]

@@ -1,3 +1,7 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import type { ResolveCheckinSessionResult } from "@/domains/checkin";
 import { resolveCheckinSession } from "@/domains/checkin";
 import { CommunityTeaser, selectGuestScenario } from "@/features/run-checkin";
 import { CheckinChat } from "@/widgets/checkin-chat";
@@ -9,13 +13,34 @@ interface CheckinPageProps {
   token: string;
 }
 
-export async function CheckinPage({ token }: CheckinPageProps) {
-  const result = await resolveCheckinSession(token);
+export function CheckinPage({ token }: CheckinPageProps) {
+  const [resolved, setResolved] = useState<{
+    token: string;
+    value: ResolveCheckinSessionResult;
+  }>();
+  const result = resolved?.token === token ? resolved.value : undefined;
+  useEffect(() => {
+    let current = true;
+    void resolveCheckinSession(token).then((value) => {
+      if (current) setResolved({ token, value });
+    });
+    return () => {
+      current = false;
+    };
+  }, [token]);
+  if (!result)
+    return (
+      <CheckinStateScreen
+        title="체크인을 준비하고 있어요"
+        description="잠시만 기다려 주세요."
+      />
+    );
 
   switch (result.status) {
     case "active": {
       return (
         <CheckinChat
+          key={result.session.id}
           session={result.session}
           scenario={selectGuestScenario(result.session)}
         />
@@ -26,7 +51,12 @@ export async function CheckinPage({ token }: CheckinPageProps) {
         <CheckinStateScreen
           title="이번 체크인은 이미 답변해 주셨어요"
           description="감사합니다 😊 이제 이 창을 닫으셔도 돼요."
-          action={<CommunityTeaser key={result.sessionId} sessionId={result.sessionId} />}
+          action={
+            <CommunityTeaser
+              key={result.sessionId}
+              sessionId={result.sessionId}
+            />
+          }
         />
       );
     case "expired":
