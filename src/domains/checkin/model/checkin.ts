@@ -16,6 +16,8 @@ export interface CheckinSession {
   personaType: PersonaType;
   roundType: RoundType;
   displayName?: string;
+  scenarioId?: string;
+  scenarioVersion?: number;
   eventContext?: EventContext;
 }
 

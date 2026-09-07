@@ -1,3 +1,7 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import type { ResolveCheckinSessionResult } from "@/domains/checkin";
 import { resolveCheckinSession } from "@/domains/checkin";
 import { CommunityTeaser, selectGuestScenario } from "@/features/run-checkin";
 import { CheckinChat } from "@/widgets/checkin-chat";
@@ -9,8 +13,10 @@ interface CheckinPageProps {
   token: string;
 }
 
-export async function CheckinPage({ token }: CheckinPageProps) {
-  const result = await resolveCheckinSession(token);
+export function CheckinPage({ token }: CheckinPageProps) {
+  const [result,setResult]=useState<ResolveCheckinSessionResult>();
+  useEffect(()=>{let current=true;void resolveCheckinSession(token).then(value=>{if(current)setResult(value);});return ()=>{current=false;};},[token]);
+  if(!result) return <CheckinStateScreen title="체크인을 준비하고 있어요" description="잠시만 기다려 주세요." />;
 
   switch (result.status) {
     case "active": {

@@ -9,8 +9,10 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  logging: false, // Access-token paths must not be printed by the dev server.
   async headers() {
     return [
+      { source: "/api/checkin/:path*", headers: securityHeaders },
       {
         source: "/c/:path*",
         headers: securityHeaders,
