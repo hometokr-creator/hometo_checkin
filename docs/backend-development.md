@@ -25,7 +25,7 @@ supabase/migrations가 스키마의 단일 원본입니다. 첫 마이그레이�
 
 ## 현재 검증
 
-스키마 8개 테이블의 RLS 및 anon/authenticated 접근 차단, open_issues 뷰 권한을 원격 DB에서 확인했습니다. API와 DB를 연결해 A~E 저장, 동일·상이 본문 동시 제출, 새 키 우회 차단, 서버 트리아지, 만료·폐기, 관심·진행 이벤트 분리를 검증했습니다. 단위 테스트 70개와 브라우저 회귀 테스트 13개가 통과했습니다. 카카오 인앱 실기기 검증과 Vercel 배포는 아직 하지 않았습니다.
+스키마 8개 테이블의 RLS 및 anon/authenticated 접근 차단, open_issues 뷰 권한을 원격 DB에서 확인했습니다. API와 DB를 연결해 A~E 저장, 동일·상이 본문 동시 제출, 새 키 우회 차단, 서버 트리아지, 만료·폐기, 관심·진행 이벤트 분리를 검증했습니다. 단위 테스트 70개와 브라우저 회귀 테스트 13개가 통과했습니다. Vercel Preview 배포 및 실제 HTTPS API·DB 검증도 완료했습니다. 카카오 인앱 실기기 검증은 남아 있습니다.
 
 ## 수동 테스트 링크 만들기
 
@@ -61,4 +61,24 @@ POST /api/checkin/access에서 원문 토큰을 교환하고 세션별 HttpOnly 
 
 ## 키 보관
 
-.env.example은 빈 값의 양식만 커밋합니다. 실제 서비스 키·쿠키 서명 비밀값은 .env.local과 Vercel 서버 환경변수에만 둡니다. 예제 파일이 채워지면 configuration.test.ts가 실패합니다. 이번 작업 중 예제 파일에 입력됐던 키는 로컬 커밋에서 제거했으며 원격 푸시는 하지 않았습니다. 이전 Git 객체에 남을 수 있는 키는 교체가 필요합니다.
+.env.example은 빈 값의 양식만 커밋합니다. 실제 서비스 키·쿠키 서명 비밀값은 .env.local과 Vercel 서버 환경변수에만 둡니다. 예제 파일이 채워지면 configuration.test.ts가 실패합니다. 이번 작업 중 예제 파일에 입력됐던 키는 로컬 커밋에서 제거했으며 원격 푸시는 하지 않았습니다. 2026-09-07에 새 Secret key로 교체하고 Legacy API Keys를 비활성화했습니다. 이전 키의 DB 접근은 HTTP 401, 새 키는 HTTP 200으로 검증했습니다. 이전 Git 객체에 남은 키도 더 이상 접근할 수 없습니다.
+
+## Vercel 테스트 배포 준비
+
+대상은 HomeTogether 팀의 hometogether-checkin-web 프로젝트입니다. Preview 환경에 개발 DB를 연결하고 실제 고객 정보는 넣지 않습니다. `.vercelignore`로 환경변수 파일, Git 객체, 비공개 테스트 링크·결과를 업로드에서 제외합니다.
+
+필요한 서버 환경변수는 SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, CHECKIN_ACCESS_SECRET, CHECKIN_APP_ORIGIN입니다. SUPABASE_SERVICE_ROLE_KEY에는 새 Secret key를 사용합니다. 쿠키 서명 비밀값은 배포용으로 별도 생성하며, CHECKIN_APP_ORIGIN은 테스트에 사용할 정확한 HTTPS 주소로 지정합니다. 로컬 `.env.local`을 환경변수 내려받기로 덮어쓰지 않습니다.
+
+프로젝트에 연결된 GitHub 저장소는 hometokr-creator/hometogether-checkin-web이고 현재 로컬 origin은 bigmansinwoo-coder/hometogether-checkin-web입니다. 자동 배포 기준을 정하기 전에는 동일한 저장소라고 가정하지 않으며, 이번 테스트는 로컬 소스를 CLI로 배포합니다. 배포 보호는 유지합니다.
+
+### 2026-09-07 배포 결과
+
+- Preview: https://hometogether-checkin-test.vercel.app
+- 배포 ID: dpl_5KiYztwq7H7HCkBsNsM9HEs81GH8 (READY)
+- 기준 구현: codex/checkin-backend, 6fc92d7 및 배포 제외 설정. 로컬 CLI 업로드이며 Git push·운영 배포는 하지 않았습니다.
+- Next.js 16.3.4 / Node 24, 빌드 22초, 함수 지역 icn1.
+- Preview 서버 환경변수 4개를 등록했습니다. Vercel 연결 시 로컬에 추가된 OIDC 값 외에 기존 개발 환경변수는 보존됐습니다.
+- HTTPS API와 개발 DB를 연결해 A~E, 동시 제출, 멱등·충돌, 권한·만료, 서버 트리아지, 관심·진행 이벤트 분리를 검증했습니다.
+- 실제 브라우저에서 긴급 칩 → 자유어 → 완료 → 관심 주제 제출 및 새로고침을 확인했습니다. DB 결과는 urgent/R1, 관심 주제 daily-life이며 진행 이벤트는 q_main, q_tag, q_chip_urgent, q_free_urgent입니다. 브라우저 오류는 없었습니다.
+- 휴대폰용 새 가상 세션 2개는 Git·배포에서 제외되는 artifacts/private/mobile-test-links.md에 있습니다. 체크인 토큰 14일과 별개로 Vercel 공유 접근은 약 1일 유효합니다. 만료 시 공식 공유 접근을 재발급합니다.
+- 아직 실제 카카오 인앱 실기기 검증, 운영 로그의 토큰 경로 마스킹, 자동 배포용 GitHub 저장소 정리는 완료하지 않았습니다. 고객 등록·발송은 진행하지 않았습니다.
