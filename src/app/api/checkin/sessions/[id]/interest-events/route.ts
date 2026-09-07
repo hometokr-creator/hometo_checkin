@@ -1,5 +1,5 @@
 import { body, json, failure } from "@/server/checkin/http";
-import { submitResponse } from "@/server/checkin/submit-response";
+import { recordInterest } from "@/server/checkin/record-events";
 export const runtime = "nodejs";
 export async function POST(
   request: Request,
@@ -7,8 +7,7 @@ export async function POST(
 ) {
   try {
     const { id } = await context.params;
-    const input = await body(request);
-    return json(await submitResponse(id, input));
+    return json(await recordInterest(id, await body(request, 2048)));
   } catch (error) {
     return failure(error);
   }

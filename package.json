@@ -10,7 +10,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "node scripts/run-e2e.mjs"
+    "test:e2e": "node scripts/run-e2e.mjs",
+    "test:backend": "node scripts/test-backend.mjs",
+    "checkin:create-session": "node scripts/create-checkin-session.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.115.0",

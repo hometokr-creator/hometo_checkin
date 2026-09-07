@@ -1,6 +1,6 @@
 # 체크인 백엔드 개발·운영 준비
 
-BE-A~D만 구현합니다. 실제 고객, 알림톡, 상담원 알림, AWS 연동은 필요하지 않습니다.
+BE-A~D만 구현합니다. 이번 개발에는 실제 고객 정보가 필요하지 않습니다. 알림톡 발송·상담원 알림·AWS 연동은 구현 범위 밖입니다.
 
 ## 환경
 
@@ -25,4 +25,40 @@ supabase/migrations가 스키마의 단일 원본입니다. 첫 마이그레이�
 
 ## 현재 검증
 
-스키마 8개 테이블의 RLS 및 anon/authenticated 접근 차단, open_issues 뷰 권한을 원격 DB에서 확인했습니다. 후속 API 검증 결과는 단계별로 추가합니다.
+스키마 8개 테이블의 RLS 및 anon/authenticated 접근 차단, open_issues 뷰 권한을 원격 DB에서 확인했습니다. API와 DB를 연결해 A~E 저장, 동일·상이 본문 동시 제출, 새 키 우회 차단, 서버 트리아지, 만료·폐기, 관심·진행 이벤트 분리를 검증했습니다. 단위 테스트 70개와 브라우저 회귀 테스트 13개가 통과했습니다. 카카오 인앱 실기기 검증과 Vercel 배포는 아직 하지 않았습니다.
+
+## 수동 테스트 링크 만들기
+
+1. Supabase Table Editor에서 가상 입주자의 id를 확인합니다. 실제 고객 정보는 아직 필요 없습니다.
+2. Git에서 제외되는 artifacts/private/session-input.json에 아래 형식으로 저장합니다.
+
+```json
+{
+  "participantId": "입주자 UUID",
+  "roundType": "monthly",
+  "roundKey": "manual-test-2026-09-07-1",
+  "sentAt": "2026-09-07T03:00:00.000Z"
+}
+```
+
+3. node scripts/create-checkin-session.mjs artifacts/private/session-input.json을 실행합니다.
+4. 출력된 artifacts/private/<세션 UUID>.json 파일의 url을 엽니다. 원문 토큰은 이 비공개 파일에만 남습니다.
+
+sentAt은 테스트 기준 시각이며 실제 발송을 수행하지 않습니다. 응답·토큰 마감은 sentAt+14일입니다. 같은 participantId+roundKey를 다시 발급하면 오류가 나며 새 세션으로 리마인더를 만들지 않습니다. 이벤트 회차는 eventContext: {type:"facility",itemName:"에어컨"} 또는 {type:"rule"}이 추가로 필요합니다.
+
+## 검증 실행
+
+- pnpm lint / pnpm typecheck / pnpm test / pnpm build
+- pnpm test:e2e: 13개 프론트 회귀 시나리오. e2e/mock-checkin-api.ts에서만 테스트 응답을 주입하며 실제 API는 demo 토큰을 허용하지 않습니다.
+- node scripts/test-backend.mjs: 실행 중인 http://127.0.0.1:3100 서버에 실제 요청을 보내는 DB 통합 검증. 서버를 시작할 때 CHECKIN_APP_ORIGIN=http://127.0.0.1:3100으로 맞춥니다. 다른 테스트 주소는 CHECKIN_TEST_ORIGIN으로 지정합니다. 전용 개발 프로젝트·로컬 DB에서만 실행합니다. 종료 시 이번 실행의 임시 데이터만 정리하고, 브라우저 검증용 가상 세션 한 개를 artifacts/private/browser-session.json에 남깁니다.
+- supabase/tests/checkin_contract.sql: SQL 함수·롤백·권한 검증. 트랜잭션 마지막에 rollback하여 테스트 데이터를 남기지 않습니다.
+
+## API 운영 규칙
+
+POST /api/checkin/access에서 원문 토큰을 교환하고 세션별 HttpOnly 쿠키를 발급합니다. GET /api/checkin/session?sessionId=...는 그 세션 쿠키로 조회합니다. 서로 다른 세션의 탭이 쿠키를 덮어쓰지 않습니다. 쿠키는 원래 토큰 기한을 넘기지 않습니다.
+응답은 /api/checkin/sessions/<id>/answer, 관심은 interest-events, 진행은 progress-events에 각각 POST합니다. 관심의 실험 키는 community-interest:v1, variant는 empathy-v1, 수치 훅은 NULL입니다. 주제는 최초 제출을 유지합니다. 진행 기록은 동일 세션·스텝당 한 번이며 설문 완료 직전 전송되어 뒤늦게 도착한 유효 요청도 수용합니다.
+같은 본문 재시도는 duplicate, 다른 본문은 409, 최초 응답 마감은 410입니다. 객체 키 순서와 재시도 키는 본문 해시에서 제외하고, 이슈 배열 순서·내부 문장 변경은 구분합니다. 자유어 앞뒤 공백과 CRLF는 정규화합니다.
+
+## 키 보관
+
+.env.example은 빈 값의 양식만 커밋합니다. 실제 서비스 키·쿠키 서명 비밀값은 .env.local과 Vercel 서버 환경변수에만 둡니다. 예제 파일이 채워지면 configuration.test.ts가 실패합니다. 이번 작업 중 예제 파일에 입력됐던 키는 로컬 커밋에서 제거했으며 원격 푸시는 하지 않았습니다. 이전 Git 객체에 남을 수 있는 키는 교체가 필요합니다.

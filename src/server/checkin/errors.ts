@@ -1,6 +1,18 @@
 import "server-only";
 export class CheckinError extends Error {
-  constructor(public code: "invalid" | "expired" | "conflict" | "invalid-answer" | "unsupported" | "not-completed" | "unavailable", public status: number) { super(code); }
+  constructor(
+    public code:
+      | "invalid"
+      | "expired"
+      | "conflict"
+      | "invalid-answer"
+      | "unsupported"
+      | "not-completed"
+      | "unavailable",
+    public status: number,
+  ) {
+    super(code);
+  }
 }
 export function databaseError(error: { message?: string } | null): never {
   const code = error?.message;
