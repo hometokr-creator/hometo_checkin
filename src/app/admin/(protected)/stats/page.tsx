@@ -1,2 +1,1 @@
-import { AdminPendingPage } from "@/pages-layer/admin/pending-page";
-export default function Page() { return <AdminPendingPage title="통계" />; }
+export { AdminStatsPage as default } from "@/pages-layer/admin/stats-page";

@@ -62,3 +62,26 @@ test("진행 흐름은 글자 수만 표시하고 기록 누락을 숨기지 않
   await list.getByRole("button", { name: /가상 박평온/ }).click();
   await expect(timeline).toContainText("진행 기록 없음");
 });
+test("작은 표본 통계는 분모를 표시하고 누락된 진행 기록으로 비율을 부풀리지 않는다", async ({ page }) => {
+  await page.goto("http://admin-ui.test/stats");
+  await expect(page.getByRole("article", { name: "설문 참여율", exact: true })).toContainText("2/3");
+  await expect(page.getByRole("article", { name: "기록상 완주율", exact: true })).toContainText("1/2");
+  await expect(page.getByRole("article", { name: "불만 설명 확보율", exact: true })).toContainText("1/2");
+  for (const value of await page.getByTestId("ratio").allTextContents()) expect(value).not.toContain("%");
+  await expect(page.getByRole("region", { name: "소요 시간", exact: true })).toContainText("1분 0초");
+  await page.screenshot({ path: "artifacts/private/admin-stats.png", fullPage: true });
+});
+test("표본 10 이상에서는 백분율과 분모를 함께, 분모 0은 계산 불가로 표시한다", async ({ page }) => {
+  await page.goto("http://admin-ui.test/stats?sample=10");
+  await expect(page.getByRole("article", { name: "설문 참여율", exact: true })).toContainText("100% (10/10)");
+  await page.goto("http://admin-ui.test/stats?sample=0");
+  await expect(page.getByRole("article", { name: "설문 참여율", exact: true })).toContainText("계산 불가");
+  await expect(page.getByRole("article", { name: "설문 참여율", exact: true })).not.toContainText("0%");
+});
+test("통계 회차 필터는 선택 회차를 다시 조회한다", async ({ page }) => {
+  await page.goto("http://admin-ui.test/stats");
+  await page.getByLabel("회차", { exact: true }).selectOption("monthly-first");
+  await page.getByRole("button", { name: "통계 조회" }).click();
+  await expect(page).toHaveURL(/round=monthly-first/);
+  await expect(page.getByRole("article", { name: "설문 참여율", exact: true })).toContainText("계산 불가");
+});

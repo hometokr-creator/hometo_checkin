@@ -2,6 +2,9 @@ import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { ResponseInbox } from "../src/widgets/admin-responses/response-inbox";
 import type { AdminInboxData, AdminResponse, ReviewAction } from "../src/domains/admin-responses/model";
+import { AdminStatsDashboard } from "../src/widgets/admin-stats/stats-dashboard";
+import { buildStatsData, parseStatsFilters } from "../src/domains/admin-responses/statistics";
+import { statsFixtures } from "./admin-stats-fixtures";
 
 const person = { id: "person", name: "가상 김하나", phone: "010-0000-0001", property: "테스트하우스 101호", host: "가상 집주인", contractStart: "2026-01-01", contractEnd: "2027-01-01" };
 const base: AdminResponse = { id: "response-1", sessionId: "session-1", participant: person, round: "monthly", outcome: "reported", submittedAt: "2026-09-08T01:00:00Z", reviewedAt: null, initiallyPositive: true, labelsAvailable: true,
@@ -23,6 +26,12 @@ function App() {
     setData((previous) => ({ ...previous, responses: previous.responses.map((r) => r.id === id ? { ...r, reviewedAt: reviewed ? r.reviewedAt ?? fixture.now : null } : r) }));
     return { ok: true };
   };
+  if (location.pathname.includes("stats")) {
+    const params = Object.fromEntries(new URL(location.href).searchParams);
+    const filters = parseStatsFilters(params, fixture.now)!;
+    const stats = buildStatsData(statsFixtures(params.sample === "10" ? 10 : params.sample === "0" ? 0 : 3), filters, fixture.now);
+    return <main className="mx-auto max-w-[1440px] p-6"><AdminStatsDashboard data={stats} /></main>;
+  }
   return <main className="mx-auto max-w-[1440px] p-6"><output data-testid="writes" hidden>{writes}</output><ResponseInbox data={data} reviewAction={action} /></main>;
 }
 createRoot(document.getElementById("root")!).render(<App />);
