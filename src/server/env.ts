@@ -34,3 +34,25 @@ export function accessEnvironment() {
   }
   return { secret, origin, secure: origin.startsWith("https://") };
 }
+
+export function adminEnvironment() {
+  const url = new URL(required("SUPABASE_URL"));
+  const appUrl = new URL(required("CHECKIN_APP_ORIGIN"));
+  for (const value of [url, appUrl]) {
+    if (value.protocol !== "https:" && !(value.protocol === "http:" &&
+      ["localhost", "127.0.0.1", "[::1]"].includes(value.hostname))) {
+      throw new Error("Admin URLs must use HTTPS outside localhost");
+    }
+  }
+  const emails = required("CHECKIN_ADMIN_EMAILS").split(",").map((value) => value.trim().toLowerCase()).filter(Boolean);
+  if (!emails.length || emails.some((value) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))) {
+    throw new Error("Invalid admin allowlist");
+  }
+  return {
+    url: url.origin,
+    key: required("SUPABASE_PUBLISHABLE_KEY"),
+    origin: appUrl.origin,
+    secure: appUrl.protocol === "https:",
+    emails,
+  };
+}
