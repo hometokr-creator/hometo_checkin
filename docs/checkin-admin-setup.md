@@ -12,8 +12,8 @@ Auth 쿠키는 `/admin` 경로, HttpOnly, SameSite=Lax, HTTPS에서 Secure로 �
 
 ## 사람이 적용할 설정
 
-1. 개발 프로젝트에서 검토 후 `20260908030130_checkin_response_reviewed.sql`을 적용한다. Codex는 DB에 적용하지 않았다.
-2. 적용 후 `supabase/tests/checkin_admin_review.sql`을 개발 DB에서 실행한다. 전체 트랜잭션은 rollback된다. 운영 데이터로 테스트하지 않는다.
+1. 개발 프로젝트 hometo_checkin에 사용자 직접 요청으로 `20260908050340_checkin_response_reviewed.sql` 적용 완료(2026-09-08). 기존 검토 파일의 SQL과 동일하며 실제 원격 적용 버전에 파일명을 맞췄다. 이 개발 DB에는 다시 실행하지 않는다.
+2. 개발 DB에서 `supabase/tests/checkin_admin_review.sql` 계약 테스트 통과. 수동 확인·해제, 최초 시각 유지, 원본 불변, 잘못된 입력, 공개 역할 실행 차단을 검증했다. 테스트 트랜잭션은 rollback되어 데이터가 남지 않았다.
 3. Supabase Authentication에서 Email provider를 활성화한다. 관리자 이메일의 Auth 사용자를 미리 생성한다. 코드가 자동 가입을 하지 않도록 shouldCreateUser=false로 설정했다.
 4. 환경별 서버 환경변수에 `SUPABASE_PUBLISHABLE_KEY`와 `CHECKIN_ADMIN_EMAILS`를 넣는다. 후자는 허용 이메일을 콤마로 구분한다. 실제 값은 .env.example에 넣지 않는다.
 5. 기존 `SUPABASE_URL`, `CHECKIN_APP_ORIGIN`을 해당 환경에 맞춘다. 후자는 브라우저에서 접속하는 실제 origin이어야 한다.
@@ -28,7 +28,7 @@ Auth 쿠키는 `/admin` 경로, HttpOnly, SameSite=Lax, HTTPS에서 Secure로 �
 9. Vercel/프록시 접근 로그에서 인증 완료 URL의 token_hash를 마스킹한다. 링크와 쿠키를 분석 로그에 넣지 않는다.
 10. 허용 사용자 로그인 → 로그아웃 → 보호 화면 재접근 차단, 만료·재사용 링크 실패를 실제 이메일로 확인한다. 검증 전에는 운영 인증 완료로 간주하지 않는다.
 
-실제 이메일 발송·Auth 사용자 등록·환경변수 주입·SQL 적용·배포는 이번 로컬 작업에서 수행하지 않았다.
+SQL 적용과 DB 계약 검증은 완료했다. 실제 이메일 발송·Auth 사용자 등록·환경변수 주입·배포는 수행하지 않았다.
 
 ## 확인 상태
 
@@ -44,7 +44,7 @@ RPC는 reviewed_at만 변경한다. true 중복 호출은 최초 확인 시각�
 
 ## AD-B 연결 조건과 검증
 
-- 개발 DB를 읽기 전용으로 점검했으며 reviewed_at 컬럼과 확인 RPC가 아직 없음을 확인했다. SQL은 자동 적용하지 않았다. 미적용 상태는 빈 목록이 아니라 데이터 연결 준비 안내로 표시한다.
+- 개발 DB의 reviewed_at 컬럼·부분 인덱스·확인 RPC 적용과 권한을 확인했다. 다른 환경의 미적용 상태는 빈 목록이 아니라 데이터 연결 준비 안내로 표시한다.
 - 응답은 RSC에서 service_role로 조회하고 화면에 필요한 DTO만 전달한다. 초기 소규모 운영에 맞춰 전체 정기 응답을 읽어 필터·과거 이력을 제공한다. Supabase 응답 행 제한으로 누락되지 않도록 서버 내부에서 나눠 읽는다. UI 페이지네이션은 없다.
 - 상세 열기는 쓰기를 발생시키지 않는다. 수동 버튼만 인증 재검증 → 응답 범위 확인 → 전용 RPC → revalidatePath를 수행한다. 확인 실패는 성공으로 표시하지 않는다.
 - 전화번호는 상세에서만 렌더링한다. 화면에는 DB 코드값 대신 한국어 라벨을 표시하고 전체 answers_json·인증키는 클라이언트 DTO에 넣지 않는다. 허용된 운영자에게 상세용 전화번호가 포함된 DTO를 전달하는 것은 조회 권한 범위에 포함된다.
@@ -76,7 +76,7 @@ RPC는 reviewed_at만 변경한다. true 중복 호출은 최초 확인 시각�
 - 브라우저 테스트 23개 통과: 운영자 인증 3개, 응답·통계 UI 7개 및 기존 입주자 회귀 13개. 실제 이메일 발송 없이 검증했다.
 - 브라우저 테스트는 기존 Playwright 사용. agent-browser 실행 파일은 설치돼 있지 않았다.
 - 빌드와 개발 서버 검증은 순차 실행한다. 입주자 소스·루트 레이아웃 변경 없음.
-- SQL 계약 테스트 파일은 작성만 했으며 실제 DB 실행·메일 로그인·운영 배포 검증은 수동 설정 후 남아 있다.
+- 개발 DB SQL 계약 테스트 통과. 실제 메일 로그인·화면에서 저장·운영 배포 검증은 인증 설정 후 남아 있다.
 
 확정 작업 브랜치: feat/checkin-admin (AD-A~AD-D 공통)
 커밋은 AD-A, AD-B, AD-C, AD-D별로 분리한다. 푸시·병합·배포는 수행하지 않는다.
