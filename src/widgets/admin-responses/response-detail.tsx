@@ -12,7 +12,7 @@ export function ResponseDetail({ response, history, reviewAction, onSelect }: {
         <h2 className="text-xl font-extrabold">{person.name}님의 응답</h2>
         {isUrgentResponse(response) ? <span className="rounded bg-red-50 px-2 py-1 text-xs font-bold text-red-700">긴급</span> : null}
       </div>
-      <p className="text-sm text-grayscale-600">{person.property || "매물 정보 없음"} · {ADMIN_ROUNDS[response.round]}</p>
+      <p className="text-sm text-grayscale-600">{person.property || "매물 정보 없음"} · {ADMIN_ROUNDS[response.round]} · {formatAdminTime(response.submittedAt)}</p>
       {response.initiallyPositive && response.outcome !== "ok" ? <p className="inline-block rounded-md bg-primary-50 px-3 py-2 text-sm font-bold text-primary-600">처음엔 괜찮다고 함</p> : null}
     </header>
     <section className="space-y-4 p-6" aria-labelledby="issue-heading">
@@ -34,6 +34,12 @@ export function ResponseDetail({ response, history, reviewAction, onSelect }: {
       </dl>
     </section>
     <section className="p-6">
+      <h3 className="mb-4 font-extrabold">확인 상태</h3>
+      <ReviewControl key={response.id} id={response.id} reviewedAt={response.reviewedAt} action={reviewAction} />
+    </section>
+    <details>
+      <summary className="cursor-pointer px-6 py-4 text-sm font-bold">진행 기록·관심 정보</summary>
+    <section className="p-6">
       <h3 className="mb-3 font-extrabold">제출 정보</h3>
       <p className="text-sm text-grayscale-700">{formatAdminTime(response.submittedAt)} · {ADMIN_ROUNDS[response.round]} · {ADMIN_OUTCOMES[response.outcome]}</p>
     </section>
@@ -43,6 +49,9 @@ export function ResponseDetail({ response, history, reviewAction, onSelect }: {
       <p className="text-sm text-grayscale-700">{!response.interest?.exposed ? "관심 카드 노출 기록 없음" : response.interest.clicked ? "관심을 표시함" : "관심을 표시하지 않음"}</p>
       <p className="text-sm text-grayscale-600">{response.interest?.topicsSubmitted ? (response.interest.topics.length ? response.interest.topics.join(" · ") : "주제를 선택하지 않고 제출함") : "주제 제출 기록 없음"}</p>
     </section>
+    </details>
+    <details>
+      <summary className="cursor-pointer px-6 py-4 text-sm font-bold">과거 응답 이력 · {history.length}건</summary>
     <section className="p-6" aria-labelledby="history-heading">
       <h3 id="history-heading" className="mb-3 font-extrabold">과거 응답 이력 <span className="font-normal text-grayscale-500">{history.length}건</span></h3>
       <p className="mb-3 text-xs text-grayscale-500">이 응답보다 먼저 접수된 기록입니다. 같은 태그가 반복되어도 해결 여부를 뜻하지 않습니다.</p>
@@ -54,9 +63,6 @@ export function ResponseDetail({ response, history, reviewAction, onSelect }: {
         </button>
       </li>)}</ul> : <p className="text-sm text-grayscale-600">이전 응답이 없습니다.</p>}
     </section>
-    <section className="p-6">
-      <h3 className="mb-4 font-extrabold">확인 상태</h3>
-      <ReviewControl key={response.id} id={response.id} reviewedAt={response.reviewedAt} action={reviewAction} />
-    </section>
+    </details>
   </article>;
 }

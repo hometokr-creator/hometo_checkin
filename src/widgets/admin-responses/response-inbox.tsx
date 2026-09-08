@@ -25,7 +25,9 @@ export function ResponseInbox({ data, reviewAction }: { data: AdminInboxData; re
       <div><p className="text-xs font-bold tracking-wide text-primary-600">정기 체크인</p><h1 className="mt-1 text-2xl font-extrabold">응답</h1></div>
       <p aria-label="응답 요약" className="text-sm text-grayscale-600">{period} · 응답 <strong className="text-grayscale-900">{summary.total}건</strong> · 불만 {summary.reported}건 · <span className={summary.urgent ? "font-bold text-red-700" : ""}>긴급 {summary.urgent}건</span></p>
     </header>
-    <section aria-label="응답 필터" className="grid gap-3 rounded-xl border border-grayscale-200 bg-white p-4 sm:grid-cols-3 lg:grid-cols-6">
+    <details className="rounded-xl border border-grayscale-200 bg-white p-4">
+      <summary className="cursor-pointer text-sm font-bold">필터 · {filters.round === "all" ? "전체 회차" : ADMIN_ROUNDS[filters.round]} · {filters.complaint === "all" ? "전체 응답" : filters.complaint === "yes" ? "불만 있음" : "불만 없음"} · {filters.review === "all" ? "전체 확인 상태" : filters.review === "unreviewed" ? "미확인" : "확인함"}</summary>
+      <section aria-label="응답 필터" className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
       <label className="text-xs font-bold text-grayscale-600">회차<select className={controlClass} value={filters.round} onChange={(event) => filter("round", event.target.value as ResponseFilters["round"])}><option value="all">전체 회차</option>{Object.entries(ADMIN_ROUNDS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
       <label className="text-xs font-bold text-grayscale-600">불만 유무<select className={controlClass} value={filters.complaint} onChange={(event) => filter("complaint", event.target.value as ResponseFilters["complaint"])}><option value="all">전체 응답</option><option value="yes">불만 있음</option><option value="no">불만 없음</option></select></label>
       <label className="text-xs font-bold text-grayscale-600">확인 여부<select className={controlClass} value={filters.review} onChange={(event) => filter("review", event.target.value as ResponseFilters["review"])}><option value="all">전체</option><option value="unreviewed">미확인</option><option value="reviewed">확인함</option></select></label>
@@ -33,15 +35,16 @@ export function ResponseInbox({ data, reviewAction }: { data: AdminInboxData; re
       <label className="min-w-0 text-xs font-bold text-grayscale-600">접수 종료일<input className={controlClass} type="date" value={filters.to} onChange={(event) => filter("to", event.target.value)} /></label>
       <button onClick={() => { setFilters(initialFilters(data.now)); setSelectedId(null); }} className="self-end rounded-lg border border-grayscale-300 px-3 py-2 text-sm hover:bg-grayscale-70">필터 초기화</button>
     </section>
+    </details>
     {invalidPeriod ? <p role="alert" className="text-sm text-red-700">시작일과 종료일을 확인해 주세요.</p> : null}
-    <section aria-label="긴급 경로 진입 미제출" className="rounded-xl border border-red-200 bg-white p-4">
+    {pending.length ? <section aria-label="긴급 경로 진입 미제출" className="rounded-xl border border-red-200 bg-white p-4">
       <h2 className="font-bold text-red-800">긴급 경로 진입 · 미제출 <span className="ml-1">{pending.length}건</span></h2>
       <p className="mt-1 text-xs text-grayscale-600">확정 신고와 별도인 진행 기록입니다. 선택한 기간·회차 기준이며 불만·확인 필터는 적용하지 않습니다.</p>
       {pending.length ? <ul className="mt-3 divide-y divide-red-100">{pending.map((item) => <li key={item.sessionId} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2 text-sm">
         <strong>{item.name}</strong><span>{item.property || "매물 정보 없음"}</span><span className="text-grayscale-600">{ADMIN_ROUNDS[item.round]} · {formatAdminTime(item.reachedAt)}</span>
         <span className="ml-auto text-xs font-bold text-red-700">{Date.parse(item.expiresAt) <= Date.parse(data.now) ? "기한 만료 · 미완료" : "진행 중 · 미완료"}</span>
       </li>)}</ul> : <p className="mt-3 text-sm text-grayscale-600">해당하는 기록이 없습니다.</p>}
-    </section>
+    </section> : null}
     <div className="grid items-start gap-4 lg:grid-cols-[minmax(320px,0.9fr)_minmax(0,1.3fr)]">
       <section aria-label="응답 목록" className="min-w-0 overflow-hidden rounded-xl border border-grayscale-200 bg-white">
         <div className="border-b border-grayscale-200 px-4 py-3 text-xs text-grayscale-600">응답 {visible.length}건 · 긴급, 불만, 최신순</div>
@@ -60,7 +63,7 @@ export function ResponseInbox({ data, reviewAction }: { data: AdminInboxData; re
       <section className="min-w-0 rounded-xl border border-grayscale-200 bg-white">
         {selected ? <>
           {!visible.some((item) => item.id === selected.id) ? <p className="border-b border-grayscale-200 px-6 py-3 text-xs text-grayscale-600">현재 목록 필터 밖의 응답을 보고 있습니다.</p> : null}
-          <ResponseDetail response={selected} history={previousResponses(data.responses, selected)} reviewAction={reviewAction} onSelect={setSelectedId} />
+          <ResponseDetail key={selected.id} response={selected} history={previousResponses(data.responses, selected)} reviewAction={reviewAction} onSelect={setSelectedId} />
         </> : <div className="grid min-h-80 place-content-center p-8 text-center"><h2 className="font-bold">응답을 선택해 주세요</h2><p className="mt-2 text-sm leading-6 text-grayscale-600">목록을 누르면 여기에서 내용을 확인할 수 있습니다.<br />확인 상태는 버튼을 눌러 직접 변경합니다.</p></div>}
       </section>
     </div>

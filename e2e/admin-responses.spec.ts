@@ -38,7 +38,9 @@ test("목록 선택은 쓰지 않으며 수동 확인과 해제만 저장한다"
 });
 test("과거 이력은 현재 기간 밖도 표시하고 필터는 불만 없는 응답을 유지한다", async ({ page }) => {
   await page.getByRole("region", { name: "응답 목록" }).getByRole("button", { name: /가상 김하나/ }).click();
+  await page.getByText("과거 응답 이력 · 1건", { exact: true }).click();
   await expect(page.getByRole("region", { name: /과거 응답 이력/ })).toContainText("지난달에도 문의했어요");
+  await page.locator("summary").filter({ hasText: "필터 ·" }).click();
   await page.getByLabel("불만 유무").selectOption("no");
   await expect(page.getByRole("region", { name: "응답 목록" }).getByRole("button")).toHaveCount(1);
   await expect(page.getByRole("region", { name: "응답 목록" })).toContainText("가상 박평온");
@@ -56,10 +58,15 @@ test("저장 실패 시 확인 상태를 성공으로 바꾸지 않는다", asyn
 test("진행 흐름은 글자 수만 표시하고 기록 누락을 숨기지 않는다", async ({ page }) => {
   const list = page.getByRole("region", { name: "응답 목록" });
   await list.getByRole("button", { name: /가상 김하나/ }).click();
+  await expect(page.getByRole("button", { name: "확인함으로 표시", exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "진행 흐름" })).not.toBeVisible();
+  await page.getByText("진행 기록·관심 정보", { exact: true }).click();
   const timeline = page.getByRole("region", { name: "진행 흐름" });
   await expect(timeline).toContainText("작성함 32자");
   await expect(timeline).not.toContainText("난방이 잘 되지 않아요");
   await list.getByRole("button", { name: /가상 박평온/ }).click();
+  await expect(page.getByRole("region", { name: "진행 흐름" })).not.toBeVisible();
+  await page.getByText("진행 기록·관심 정보", { exact: true }).click();
   await expect(timeline).toContainText("진행 기록 없음");
 });
 test("작은 표본 통계는 분모를 표시하고 누락된 진행 기록으로 비율을 부풀리지 않는다", async ({ page }) => {
