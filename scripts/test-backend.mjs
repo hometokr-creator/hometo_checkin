@@ -3,17 +3,13 @@ import { parseEnv } from "node:util";
 import { randomBytes, createHash, randomUUID } from "node:crypto";
 import assert from "node:assert/strict";
 import { createClient } from "@supabase/supabase-js";
+import { assertTestDatabase } from "./test-database-policy.mjs";
 const env = {
   ...parseEnv(await readFile(".env.local", "utf8")),
   ...process.env,
 };
 const base = process.env.CHECKIN_TEST_ORIGIN ?? "http://127.0.0.1:3100";
-const project = new URL(env.SUPABASE_URL).hostname;
-if (
-  project !== "rfwxpqekweizestlxomi.supabase.co" &&
-  !["localhost", "127.0.0.1"].includes(project)
-)
-  throw new Error("Use the dedicated development project only");
+assertTestDatabase(env);
 const db = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
