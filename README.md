@@ -4,6 +4,10 @@
 
 ## 설계 문서
 
+[운영 출시까지 남은 작업과 확정 정책](docs/remaining-work.md) — 현재 완료 상태, 다음 개발 순서, 사용자와 결정할 항목의 시작점입니다.
+
+[테스트 환경 실행 안내](docs/test-environment.md) · [구글 시트 고객 데이터 연동](docs/guest-sheet-integration.md) · [운영자 화면 확정 설계](docs/checkin-admin-design.md)
+
 [정기 체크인 v2 — 사용자 흐름·제품 의도·백엔드 연동 설계](docs/checkin-v2-backend-design.md)
 
 위 문서는 백엔드 구현 전의 흐름·설계 근거입니다. 현재 연결 방법, 마이그레이션, 고객 입력 항목과 테스트 링크 발급은 [백엔드 개발·운영 준비](docs/backend-development.md)를 따릅니다.
@@ -33,10 +37,10 @@
 
 ```bash
 pnpm install
-pnpm dev
+pnpm dev:test-db
 ```
 
-실행 전에 `.env.local`에 서버 연결 설정이 필요합니다. [개발 안내](docs/backend-development.md)에 따라 가상 입주자와 테스트 링크를 만듭니다. 실제 고객 정보는 필요하지 않습니다. 기존 `demo-*` 토큰은 브라우저 테스트에서만 사용하며 실제 API는 거부합니다.
+DB 연결 개발·테스트는 `.env.checkin-test`와 위 전용 명령을 사용합니다. [테스트 환경 안내](docs/test-environment.md)에 따라 설정하고 별도 터미널에서 `pnpm test:backend:test-db`로 가상 고객을 검증합니다. 기존 `pnpm dev`는 `.env.local`을 읽으며 현재 이 파일은 운영 지정 프로젝트에 연결돼 있으므로 테스트 용도로 혼용하지 않습니다. 실제 고객 정보는 필요하지 않습니다. 기존 `demo-*` 토큰은 브라우저 테스트에서만 사용하며 실제 API는 거부합니다.
 
 ## 검증
 

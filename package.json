@@ -12,6 +12,8 @@
     "test:watch": "vitest",
     "test:e2e": "node scripts/run-e2e.mjs",
     "test:backend": "node scripts/test-backend.mjs",
+    "dev:test-db": "node scripts/run-checkin-test-env.mjs dev",
+    "test:backend:test-db": "node scripts/run-checkin-test-env.mjs backend",
     "checkin:create-session": "node scripts/create-checkin-session.mjs"
   },
   "dependencies": {
