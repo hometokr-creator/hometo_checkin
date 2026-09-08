@@ -9,7 +9,8 @@ export const RESPONSE_SELECT = `id,session_id,outcome,submitted_at,reviewed_at,a
   issues:checkin_issue(id,tag,detail,free_text),
   session:checkin_session!inner(${SESSION_FIELDS},
     participant:checkin_participant!inner(id,display_name,phone,property_label,host_name,contract_start_date,contract_end_date),
-    interests:checkin_interest(experiment_key,exposed_at,clicked_at,topics_submitted_at,topics))`;
+    interests:checkin_interest(experiment_key,exposed_at,clicked_at,topics_submitted_at,topics),
+    progress:checkin_progress_event(step_id,reached_at))`;
 export const URGENT_SELECT = `session_id,reached_at,session:checkin_session!inner(${SESSION_FIELDS},
   participant:checkin_participant!inner(display_name,property_label),response:checkin_response(id))`;
 export class AdminReadError extends Error {

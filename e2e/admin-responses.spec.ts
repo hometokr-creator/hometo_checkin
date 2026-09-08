@@ -53,3 +53,12 @@ test("저장 실패 시 확인 상태를 성공으로 바꾸지 않는다", asyn
   await expect(page.getByRole("button", { name: "확인함으로 표시", exact: true })).toBeVisible();
   await expect(page.getByTestId("writes")).toHaveText("0");
 });
+test("진행 흐름은 글자 수만 표시하고 기록 누락을 숨기지 않는다", async ({ page }) => {
+  const list = page.getByRole("region", { name: "응답 목록" });
+  await list.getByRole("button", { name: /가상 김하나/ }).click();
+  const timeline = page.getByRole("region", { name: "진행 흐름" });
+  await expect(timeline).toContainText("작성함 32자");
+  await expect(timeline).not.toContainText("난방이 잘 되지 않아요");
+  await list.getByRole("button", { name: /가상 박평온/ }).click();
+  await expect(timeline).toContainText("진행 기록 없음");
+});

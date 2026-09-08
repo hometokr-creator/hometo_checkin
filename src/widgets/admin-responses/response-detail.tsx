@@ -1,5 +1,6 @@
 import { ADMIN_ROUNDS, ADMIN_TAGS, ADMIN_OUTCOMES, formatAdminTime, isUrgentResponse, type AdminResponse, type ReviewAction } from "@/domains/admin-responses/model";
 import { ReviewControl } from "@/features/review-response/review-control";
+import { ResponseTimeline } from "./response-timeline";
 
 export function ResponseDetail({ response, history, reviewAction, onSelect }: {
   response: AdminResponse; history: AdminResponse[]; reviewAction: ReviewAction; onSelect: (id: string) => void;
@@ -36,6 +37,7 @@ export function ResponseDetail({ response, history, reviewAction, onSelect }: {
       <h3 className="mb-3 font-extrabold">제출 정보</h3>
       <p className="text-sm text-grayscale-700">{formatAdminTime(response.submittedAt)} · {ADMIN_ROUNDS[response.round]} · {ADMIN_OUTCOMES[response.outcome]}</p>
     </section>
+    <ResponseTimeline response={response} />
     <section className="space-y-3 p-6">
       <h3 className="font-extrabold">커뮤니티 관심</h3>
       <p className="text-sm text-grayscale-700">{!response.interest?.exposed ? "관심 카드 노출 기록 없음" : response.interest.clicked ? "관심을 표시함" : "관심을 표시하지 않음"}</p>

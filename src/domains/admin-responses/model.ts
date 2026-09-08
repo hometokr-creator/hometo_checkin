@@ -16,6 +16,8 @@ export interface AdminResponse {
   outcome: keyof typeof ADMIN_OUTCOMES; submittedAt: string; reviewedAt: string | null;
   issues: AdminIssue[]; initiallyPositive: boolean; labelsAvailable: boolean;
   interest: { exposed: boolean; clicked: boolean; topicsSubmitted: boolean; topics: string[] } | null;
+  timeline: { at: string; question: string; answer: string }[];
+  durationSeconds: number | null;
 }
 export interface AdminUrgentPending {
   sessionId: string; name: string; property: string | null; round: AdminRound;
@@ -60,4 +62,9 @@ export function previousResponses(responses: AdminResponse[], selected: AdminRes
 }
 export function formatAdminTime(value: string) {
   return new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(value));
+}
+export function formatElapsed(seconds: number) {
+  const rounded = Math.round(seconds);
+  const hours = Math.floor(rounded / 3600), minutes = Math.floor(rounded % 3600 / 60), rest = rounded % 60;
+  return [hours ? `${hours}시간` : "", minutes ? `${minutes}분` : "", `${rest}초`].filter(Boolean).join(" ");
 }
