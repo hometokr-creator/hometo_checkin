@@ -10,7 +10,7 @@
 - 필수정보 미완성 17명은 DB에 신규 저장하지 않았으며, ID만 있는 7행도 제외했다.
 - G021/G022 종료일은 사용자 확인 및 시트 재조회 결과 `2027-02-28`이다. 메모나 희망기간으로 날짜를 추정하지 않았다.
 - 테스트용 `hometogether-admin`에는 동일한 스키마만 적용했다. 검증용 가상 고객·실행 기록은 트랜잭션을 롤백해 남기지 않는다.
-- **일일 자동 실행 코드는 구현했지만 아직 활성화되지 않았다. Google 서비스 계정의 시트 읽기 권한과 운영 배포가 남아 있다.** 최초 저장은 연결된 Google Drive 도구로 읽은 스냅샷을 동일한 검증·저장 코드에 전달해 수행했다.
+- **일일 자동 실행 코드는 구현했지만 아직 활성화되지 않았다. Apps Script 설치·Google 권한 승인과 운영 배포가 남아 있다. 서비스 계정 JSON 키는 필요 없다.** 최초 저장은 연결된 Google Drive 도구로 읽은 스냅샷을 동일한 검증·저장 코드에 전달해 수행했다.
 
 ## 저장 조건과 갱신 규칙
 
@@ -43,53 +43,54 @@
 
 운영 화면의 고객·응답 조인, 계약 변경/재계약 이력 해석, 실제 발송 대상 선별은 후속 작업이다. 필수정보가 나중에 불완전해진 고객의 과거 정상 값이 남아 있으므로 조회·일정 생성 시 반드시 `sync_status`와 최근 동기화 성공 여부를 함께 확인한다.
 
-## Google 읽기 권한 준비
+## Apps Script 방식으로 전환 (2026-09-16)
 
-1. Google Cloud에서 서비스 계정을 만들고 **Google Sheets API**를 사용 설정한다.
-2. 해당 서비스 계정의 JSON 키를 발급한다. 키 파일은 채팅이나 Git에 넣지 않는다. 로컬 보관이 필요하면 Git에서 제외된 `artifacts/private/`에 둔다.
-3. 원본 스프레드시트의 공유 설정에 서비스 계정 `client_email`을 **뷰어**로 추가한다. 파일을 공개할 필요는 없다.
-4. Git에서 제외되는 `.env.google-sheets`에 다음 두 값을 입력한다. `private_key`의 줄바꿈은 `\n`으로 입력할 수 있다.
+조직 정책이 서비스 계정 JSON 키 생성을 차단하여 사용자가 Apps Script 방식을 선택했다.
+운영 경로는 **게스트_마스터 → Apps Script → POST /api/integrations/guest-sheet → 기존 검증·RPC → Supabase**다.
+Vercel Cron 설정과 이전 GET Cron API는 제거했다. 서비스 계정 읽기 코드는 수동 CLI용으로만 남아 있으며 자동 실행에는 사용하지 않는다.
 
-```dotenv
-GOOGLE_SERVICE_ACCOUNT_EMAIL=서비스계정의_client_email
-GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY="서비스계정의_private_key"
-```
+### 서버 준비
 
-현재 대화의 Google Drive 연결은 최초 읽기에 사용했다. 앱 서버의 일일 실행은 별도의 서비스 계정으로 인증한다. 코드는 `spreadsheets.readonly` 권한으로 지정한 스프레드시트의 지정 탭만 읽는다.
+- 운영 환경의 기존 SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY를 사용한다. 테스트 DB 대상으로는 수신을 거절한다.
+- CHECKIN_GUEST_SYNC_SECRET: 암호학적으로 무작위인 32바이트 이상 인증값. NEXT_PUBLIC_ 접두사를 붙이지 않는다.
+- CHECKIN_GUEST_SYNC_ENABLED=true: 운영 설정 검증 후 활성화한다.
+- 운영 HTTPS 주소에 새 API가 배포되어야 한다. 저장소 규칙에 따라 배포는 별도 사용자 승인 후 진행한다.
+- Google 서비스 계정 키·Sheets API 키·CRON_SECRET 설정은 필요 없다.
 
-## 직접 실행
+### 사용자가 Google 계정에서 한 번 할 일
 
-환경 파일을 명시해야 하며 기본 동작은 미리보기다. 기존 `.env.local`에 저장된 운영 DB 연결을 재사용한다.
+1. 원본 시트에서 **확장 프로그램 → Apps Script**를 연다.
+2. 기존 코드가 있다면 보존하고 새 스크립트 파일을 추가한다. scripts/google-apps-script/guest-sync.gs 내용을 붙여 넣고 저장한다.
+3. 운영 서버 배포 후 configureGuestSync를 실행한다. Google 권한 요청에서 사용할 계정과 요청 권한을 확인하고 승인한다.
+4. 시트에 표시되는 입력창에 운영 HTTPS 주소 + /api/integrations/guest-sheet를 입력하고, 다음 창에 서버와 같은 CHECKIN_GUEST_SYNC_SECRET을 입력한다. 키는 채팅·소스 코드·셀에 넣지 않는다.
+5. previewGuests를 실행한다. 저장 없이 완성/미완성/제외 건수를 확인한다. 최초 적재 당시 수치는 완성 5, 미완성 17, ID 전용 7이며 시트 변경에 따라 달라진다.
+6. syncGuests를 한 번 실행하고 서버 DB 실행 기록 및 고객 건수를 확인한다.
+7. 같은 계정으로 installDailyGuestSync를 한 번 실행한다. 한국 시간 매일 오전 6~7시 사이 실행된다. Google의 시간 기반 트리거는 정확한 분 단위를 보장하지 않는다.
+8. 다음 날 Apps Script의 실행 내역과 checkin_guest_sync_run의 최근 성공 기록을 확인한다.
 
-```powershell
-pnpm checkin:sync-guests --env=.env.local --google-env=.env.google-sheets --expect-project=rfwxpqekweizestlxomi
-pnpm checkin:sync-guests --env=.env.local --google-env=.env.google-sheets --expect-project=rfwxpqekweizestlxomi --apply
-```
+Apps Script를 웹 앱으로 배포할 필요는 없다. 설치형 트리거는 만든 사람의 계정 권한으로 실행된다.
+인증값은 그 계정의 User Properties에 저장한다. 프로젝트 편집자는 코드를 바꿀 수 있으므로 시트/스크립트 편집 권한은 신뢰하는 운영자에게만 준다.
+운영 담당자 한 명이 트리거를 관리한다. 다른 계정의 트리거는 조회/제거되지 않으므로 담당자 변경 시 이전 계정에서 removeDailyGuestSync를 실행하고 새 계정에서 설정·검증·설치한다.
 
-최초 적재처럼 연결 도구로 확인한 전체 스냅샷을 사용하는 경우 `--snapshot=artifacts/private/guest-sheet-snapshot.json`을 지정할 수 있다. 스냅샷에는 정확한 spreadsheetId/sheetId/title/readAt/values가 있어야 한다. 이미 처리한 시각의 스냅샷을 새 실행 ID로 재적용하면 거절되므로, 다시 동기화할 때는 시트를 새로 읽는다. 테스트 DB를 대상으로 실고객 가져오기 명령을 실행하면 거절된다.
+### 실패와 중지
 
-출력은 대상 건수와 실행 ID뿐이다. 원문 이름·전화번호·메모·인증키는 출력하지 않는다.
+- removeDailyGuestSync: 현재 계정의 해당 동기화 트리거만 제거한다.
+- CHECKIN_GUEST_SYNC_ENABLED=false를 서버에 적용하면 모든 수신이 중단된다.
+- Apps Script 실패 실행은 Google 실행 내역/트리거 실패 알림에서 확인한다. 요청이 서버에 도달하지 않으면 DB 실행 기록은 생기지 않는다.
+- 수신 API의 검증/DB 오류도 현재는 DB 실패 기록을 별도 생성하지 않으므로 Google 실행 실패와 DB 마지막 성공 시각을 함께 확인한다.
+- 응답/로그에는 원본 행과 인증값을 남기지 않는다. 오류는 HTTP 상태 또는 제한된 오류 코드로 표시한다.
+- 전체 스냅샷 2MB 상한, 고정 시트 ID/탭 검증, 15분 이내 읽기 시각 검증, 공유 인증값, 명시적 활성화가 필요하다.
+- Apps Script의 동시 실행 잠금과 DB의 실행 ID/스냅샷 순서 검증을 함께 사용한다. 실패 시 자동 재전송하지 않고 다음 실행 또는 수동 실행에서 시트를 새로 읽는다.
+- Apps Script는 미완성 행도 검증용으로 서버에 보내지만 DB에는 신규 미완성 고객을 저장하지 않는다. 기존 고객 보류 규칙은 동일하다.
+- 시트 수정/삭제, 고객 메시지 발송, 체크인 세션 생성은 하지 않는다.
 
-## 하루 한 번 자동 반영 활성화
+현재는 코드 준비 단계다. 운영 배포, Google 권한 승인, 실제 HTTP 수신 및 다음 일일 실행 검증은 아직 완료되지 않았다.
 
-Vercel Cron 스킬과 공식 문서를 참고해 `/api/cron/sync-guests`와 `vercel.json`을 구성했다. 기본 시각은 **한국 시간 매일 오전 6시**다. Hobby 환경에서는 해당 시간대 안에서 실행 시각이 달라질 수 있다. 시트 동기화 시간이며 알림톡 발송 시간과는 별도다.
-
-운영 배포의 환경변수:
-
-- 기존 `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`: 운영 프로젝트 값.
-- 위 Google 인증값 2개.
-- `CRON_SECRET`: 별도로 생성한 32바이트 이상 비밀값.
-- `CHECKIN_GUEST_SYNC_ENABLED=true`: 읽기 및 미리보기 검증 후 활성화.
-
-Preview와 로컬에서는 기본적으로 활성화하지 않는다. 실고객 읽기는 운영 프로젝트를 대상으로만 허용한다. 운영 배포 전에 연결된 Vercel 프로젝트·Git 저장소와 DB 환경을 확인한다. 배포는 저장소 규칙에 따라 별도 사용자 승인을 받은 뒤 진행한다.
-
-활성화 완료 조건: 서비스 계정으로 미리보기 성공 → 운영 배포 → 인증된 동기화 요청 성공 → `checkin_guest_sync_run` 기록 확인 → 다음 일일 실행 성공 확인. 지금은 Google 인증과 운영 배포 단계가 남아 있다.
-
-일시 중지는 `CHECKIN_GUEST_SYNC_ENABLED=false`로 설정해 적용한다. 실행 실패 시 기존 고객을 지우지 않으며, 마지막 성공 시각과 오류 코드를 확인한다. 시트 탭 변경, 전체 빈 결과, 크기 상한 초과는 자동 추정하지 않고 실패 처리한다.
+공식 참고: [설치형 트리거](https://developers.google.com/apps-script/guides/triggers/installable), [시간대 설정](https://developers.google.com/apps-script/reference/script/clock-trigger-builder), [계정별 속성](https://developers.google.com/apps-script/reference/properties/properties-service).
 
 ## 검증 기록
 
-- 가져오기·완성 조건·지정 탭 읽기·오류 비노출·Cron 인증 테스트 26개 통과.
+- 가져오기·완성 조건·지정 탭 읽기·Apps Script 전송·수신 인증·미리보기 테스트 34개 통과. Google 실제 실행과 배포 후 HTTP 연결은 아직 미검증.
 - 테스트 DB의 `supabase/tests/guest_sheet_sync.sql` 통과: 신규 미완성 고객 제외, 중복 실행, 갱신 후 UUID 유지, 기존 고객 보류·누락·복구, 정보 완성 후 추가, 오래된 스냅샷 거절, RLS/권한.
 - 운영 최초 저장: 신규 5명, 미완성 제외 17명, ID 전용 행 제외 7개.
 - 저장 후 운영 DB 재조회에서 5명의 ID·계약 날짜 일치 확인. 테스트 DB는 고객/실행 기록 모두 0건 확인.
