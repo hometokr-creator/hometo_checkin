@@ -8,6 +8,8 @@
 
 [테스트 환경 실행 안내](docs/test-environment.md) · [구글 시트 고객 데이터 연동](docs/guest-sheet-integration.md) · [운영자 화면 확정 설계](docs/checkin-admin-design.md)
 
+[고객 시트 동기화 설정](docs/guest-sheet-sync.md) — 계약정보 완성 고객만 저장하는 기준, 최초 저장 결과, 하루 한 번 자동 반영을 켜기 위한 Google 인증·배포 절차.
+
 [정기 체크인 v2 — 사용자 흐름·제품 의도·백엔드 연동 설계](docs/checkin-v2-backend-design.md)
 
 위 문서는 백엔드 구현 전의 흐름·설계 근거입니다. 현재 연결 방법, 마이그레이션, 고객 입력 항목과 테스트 링크 발급은 [백엔드 개발·운영 준비](docs/backend-development.md)를 따릅니다.

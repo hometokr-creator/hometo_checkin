@@ -14,12 +14,14 @@
     "test:backend": "node scripts/test-backend.mjs",
     "dev:test-db": "node scripts/run-checkin-test-env.mjs dev",
     "test:backend:test-db": "node scripts/run-checkin-test-env.mjs backend",
-    "checkin:create-session": "node scripts/create-checkin-session.mjs"
+    "checkin:create-session": "node scripts/create-checkin-session.mjs",
+    "checkin:sync-guests": "node --conditions=react-server --import tsx scripts/sync-guests.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.6",
     "@supabase/supabase-js": "2.115.0",
     "clsx": "^2.1.1",
+    "google-auth-library": "11.0.2",
     "next": "^16.0.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
