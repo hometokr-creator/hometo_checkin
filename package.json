@@ -1,0 +1,46 @@
+{
+  "name": "hometogether-checkin-web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint . --cache",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "node scripts/run-e2e.mjs",
+    "test:backend": "node scripts/test-backend.mjs",
+    "dev:test-db": "node scripts/run-checkin-test-env.mjs dev",
+    "test:backend:test-db": "node scripts/run-checkin-test-env.mjs backend",
+    "checkin:create-session": "node scripts/create-checkin-session.mjs",
+    "checkin:sync-guests": "node --conditions=react-server --import tsx scripts/sync-guests.mjs"
+  },
+  "dependencies": {
+    "@supabase/ssr": "0.12.6",
+    "@supabase/supabase-js": "2.115.0",
+    "clsx": "^2.1.1",
+    "google-auth-library": "11.0.2",
+    "next": "^16.0.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "server-only": "0.0.1",
+    "tailwind-merge": "^3.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "@tailwindcss/postcss": "^4.0.0",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "eslint": "^9.0.0",
+    "eslint-config-next": "^16.0.0",
+    "supabase": "2.116.0",
+    "tailwindcss": "^4.0.0",
+    "tsx": "4.23.13",
+    "typescript": "^5.9.0",
+    "vitest": "^4.1.11"
+  },
+  "packageManager": "pnpm@11.20.0"
+}

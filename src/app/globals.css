@@ -1,0 +1,140 @@
+@import "tailwindcss";
+
+/* Local files are loaded once in app/layout.tsx. */
+@theme inline {
+  --font-sans: var(--font-nanum-square-round), "NanumSquareRound", -apple-system,
+    BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+}
+
+@theme {
+  --breakpoint-3xl: 90rem; /* 1440px — 매물 그리드 4열 (설계 §8) */
+
+  /* Figma: Primary/Blue */
+  --color-primary-50: #f2f8ff;
+  --color-primary-100: #e2eeff;
+  --color-primary-200: #c2dbff;
+  --color-primary-300: #9dc5ff;
+  --color-primary-400: #579cff;
+  --color-primary-500: #227dff;
+  --color-primary-600: #1c6be3;
+
+  /* Figma: Grayscale */
+  --color-grayscale-0: #ffffff;
+  --color-grayscale-50: #fafbfc;
+  --color-grayscale-70: #f6f9fc;
+  --color-grayscale-100: #edeff4;
+  --color-grayscale-200: #e6ebf3;
+  --color-grayscale-300: #ccd5e3;
+  --color-grayscale-400: #a5afbf;
+  --color-grayscale-500: #8b95a5;
+  --color-grayscale-600: #626c7c;
+  --color-grayscale-700: #485361;
+  --color-grayscale-800: #2e3b49;
+  --color-grayscale-900: #151d25;
+
+  /* Figma: System */
+  --color-system-error: #ff5e5e;
+  --color-system-success: #427fff;
+  --color-system-kakao: #fee500;
+
+  /* Reservation status — 공용 팔레트 확정 전 예약 상태 UI에만 사용 */
+  --color-status-pending: #ffa100;
+  --color-status-pending-border: #ffc800;
+  --color-status-pending-soft: #fff8e6;
+
+  --shadow-toast: 0 0 8px 0 rgba(115, 118, 123, 0.23);
+  --shadow-dropdown: 0 0 8px 0 rgba(46, 47, 49, 0.1);
+
+
+  /*
+   * Figma 텍스트 스타일 → Tailwind text-* 유틸리티
+   *
+   * 각 키는 font-size · line-height · letter-spacing만 담고, 굵기는 font-medium /
+   * font-semibold / font-bold로 따로 지정합니다. Figma의 letterSpacing 값은 퍼센트라
+   * em으로 옮겼습니다 (예: Display 1의 -2 → -0.02em = 56px 기준 -1.12px).
+   */
+  --text-display-1: 3.5rem; /* 56 */
+  --text-display-1--line-height: 1.3;
+  --text-display-1--letter-spacing: -0.02em;
+  --text-display-2: 2.75rem; /* 44 */
+  --text-display-2--line-height: 1.3;
+  --text-display-2--letter-spacing: -0.02em;
+  --text-display-3: 2.25rem; /* 36 */
+  --text-display-3--line-height: 1.3;
+  --text-display-3--letter-spacing: -0.02em;
+
+  --text-title-1: 2rem; /* 32 */
+  --text-title-1--line-height: 1.4;
+  --text-title-1--letter-spacing: -0.01em;
+  --text-title-2: 1.75rem; /* 28 */
+  --text-title-2--line-height: 1.3;
+  --text-title-2--letter-spacing: -0.01em;
+  --text-title-3: 1.5rem; /* 24 */
+  --text-title-3--line-height: 1.4;
+  --text-title-3--letter-spacing: -0.01em;
+
+  /* Figma: Heading — 모바일 화면 제목 */
+  --text-heading-1: 1.375rem; /* 22 */
+  --text-heading-1--line-height: 1.4;
+  --text-heading-1--letter-spacing: -0.01em;
+  --text-heading-2: 1.25rem; /* 20 */
+  --text-heading-2--line-height: 1.4;
+  --text-heading-2--letter-spacing: -0.01em;
+
+  --text-headline-1: 1.125rem; /* 18 */
+  --text-headline-1--line-height: 1.4;
+  --text-headline-1--letter-spacing: -0.01em;
+  --text-headline-2: 1.0625rem; /* 17 */
+  --text-headline-2--line-height: 1.4;
+  --text-headline-2--letter-spacing: 0em;
+
+  --text-body-1: 1rem; /* 16 */
+  --text-body-1--line-height: 1.5;
+  --text-body-1--letter-spacing: 0em;
+  --text-body-2: 0.9375rem; /* 15 */
+  --text-body-2--line-height: 1.5;
+  --text-body-2--letter-spacing: 0em;
+
+  --text-label-1: 0.875rem; /* 14 */
+  --text-label-1--line-height: 1.4;
+  --text-label-1--letter-spacing: 0em;
+  --text-label-2: 0.8125rem; /* 13 */
+  --text-label-2--line-height: 1.4;
+  --text-label-2--letter-spacing: 0em;
+
+  --text-caption-1: 0.75rem; /* 12 */
+  --text-caption-1--line-height: 1.4;
+  --text-caption-1--letter-spacing: 0.01em;
+  --text-caption-2: 0.6875rem; /* 11 */
+  --text-caption-2--line-height: 1.4;
+  --text-caption-2--letter-spacing: 0.01em;
+}
+
+/*
+ * 디자인에 다크 모드 정의가 없어 라이트 팔레트로 고정합니다.
+ * 다크 모드가 추가되면 여기에 대응 토큰을 정의하세요.
+ */
+html {
+  color-scheme: light;
+}
+
+body {
+  background-color: var(--color-grayscale-0);
+  color: var(--color-grayscale-900);
+}
+
+/* Material Symbols 아이콘 폰트(app/layout.tsx에서 로드)의 Google 권장 기본 스타일 */
+.material-symbols-outlined {
+  font-family: "Material Symbols Outlined";
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+}
