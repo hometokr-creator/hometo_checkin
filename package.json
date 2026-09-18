@@ -15,6 +15,8 @@
     "dev:test-db": "node scripts/run-checkin-test-env.mjs dev",
     "test:backend:test-db": "node scripts/run-checkin-test-env.mjs backend",
     "checkin:create-session": "node scripts/create-checkin-session.mjs",
+    "checkin:preview-contract": "node --import tsx scripts/preview-checkin-contract.mjs",
+    "checkin:plan-schedules": "node scripts/plan-checkin-schedules.mjs",
     "checkin:sync-guests": "node --conditions=react-server --import tsx scripts/sync-guests.mjs"
   },
   "dependencies": {

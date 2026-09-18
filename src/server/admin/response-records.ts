@@ -6,6 +6,7 @@ import { getCheckinDetailOptions } from "@/domains/checkin/model/checkin-options
 import { ADMIN_ROUNDS, ADMIN_TAGS, ADMIN_TOPICS, type AdminResponse, type AdminUrgentPending, type AdminParticipant, type AdminRound, type AdminTag } from "@/domains/admin-responses/model";
 
 export interface ParticipantRecord {
+  guest_id?: string | null;
   id: string; display_name: string; phone: string; property_label: string | null; host_name: string | null;
   contract_start_date: string; contract_end_date: string;
 }
@@ -22,7 +23,7 @@ export interface UrgentRecord {
 }
 export function regularRound(value: string): value is AdminRound { return Object.hasOwn(ADMIN_ROUNDS, value); }
 function participant(record: ParticipantRecord): AdminParticipant {
-  return { id: record.id, name: record.display_name, phone: record.phone, property: record.property_label, host: record.host_name, contractStart: record.contract_start_date, contractEnd: record.contract_end_date };
+  return { id: record.id, guestId: record.guest_id ?? null, name: record.display_name, phone: record.phone, property: record.property_label, host: record.host_name, contractStart: record.contract_start_date, contractEnd: record.contract_end_date };
 }
 export function initiallyPositive(round: AdminRound, responses: Record<string, string>) {
   const definitions = { "onboarding-d7": ["onboardingStatus", "ok"], "monthly-first": ["firstMonthStatus", "ok"], monthly: ["monthlyStatus", "ok"], "monthly-renewal": ["renewalSupportStatus", "none"] } as const;
