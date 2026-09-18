@@ -11,8 +11,8 @@ declare
   good jsonb := jsonb_build_object(
     'guest_id', 'G990001', 'source_row', 2, 'display_name', '동기화 가상 고객',
     'phone', '01000000000', 'contract_start_date', '2026-08-30', 'contract_end_date', '2027-02-28',
-    'customer_status', '계약중', 'note_category', '기타', 'note_detail', '가상 테스트',
-    'source_fields', jsonb_build_object('fixture', true), 'validation_errors', '[]'::jsonb);
+    'customer_status', '계약중', 'gender', '여성', 'school', '가상대학교',
+    'validation_errors', '[]'::jsonb);
   incomplete jsonb := jsonb_build_object(
     'guest_id', 'G990002', 'source_row', 3, 'display_name', '미완성 가상 고객',
     'phone', '01000000000', 'contract_start_date', null, 'contract_end_date', null,
@@ -38,10 +38,12 @@ begin
   result := public.sync_checkin_guests(payload, moment + interval '1 second', gen_random_uuid(), 2);
   assert (result->>'inserted')::int = 0 and (result->>'unchanged')::int = 1;
 
-  good := jsonb_set(good, '{note_detail}', '"변경된 가상 메모"');
+  good := jsonb_set(good, '{school}', '"다른 가상대학교"');
   result := public.sync_checkin_guests(jsonb_build_array(good, incomplete), moment + interval '2 seconds', gen_random_uuid(), 2);
   assert (result->>'updated')::int = 1;
-  assert (select id = original_id and note_detail = '변경된 가상 메모' from public.checkin_guest where guest_id = 'G990001');
+  assert (select id = original_id and school = '다른 가상대학교' from public.checkin_guest where guest_id = 'G990001');
+
+  assert not exists(select 1 from information_schema.columns where table_schema = 'public' and table_name = 'checkin_guest' and column_name in ('source_fields', 'note_category', 'note_detail'));
 
   -- Clearing a required field holds an existing customer without destroying valid historical fields.
   good := jsonb_set(jsonb_set(good, '{contract_end_date}', 'null'), '{validation_errors}', '[{"field":"contractEnd","code":"missing"}]');
@@ -73,6 +75,17 @@ begin
   begin perform public.sync_checkin_guests('[]', moment + interval '6 seconds', gen_random_uuid(), 0);
   exception when others then rejected := SQLERRM = 'INVALID_GUEST_SNAPSHOT'; end;
   assert rejected;
+
+  -- Old deployed server: extract only the two newly selected fields from its raw blob.
+  good := (good - 'gender' - 'school') || jsonb_build_object(
+    'note_detail', 'must not persist',
+    'source_fields', jsonb_build_object('성별', '여성', '학교또는직장명', '레거시 가상대학교', '나이', 'must not persist'));
+  perform public.sync_checkin_guests(jsonb_build_array(good, incomplete), moment + interval '7 seconds', gen_random_uuid(), 0);
+  assert (select gender = '여성' and school = '레거시 가상대학교' from public.checkin_guest where guest_id = 'G990001');
+  -- Explicitly clearing optional fields is retained, with no raw source fields required.
+  good := (good - 'source_fields') || jsonb_build_object('gender', null, 'school', null);
+  perform public.sync_checkin_guests(jsonb_build_array(good, incomplete), moment + interval '8 seconds', gen_random_uuid(), 0);
+  assert (select gender is null and school is null from public.checkin_guest where guest_id = 'G990001');
 
   assert not has_table_privilege('anon', 'public.checkin_guest', 'SELECT');
   assert not has_table_privilege('authenticated', 'public.checkin_guest', 'SELECT');

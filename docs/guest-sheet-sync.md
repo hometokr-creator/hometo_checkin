@@ -1,100 +1,133 @@
 # 게스트_마스터 → Supabase 고객 동기화
 
-기준일: 2026-09-16. 사용자 확정: **계약정보가 완성된 고객만 저장하고 하루 한 번 자동 반영한다.**
+기준일: 2026-09-18. 고객 시트는 원본이고, 체크인 DB는 필요한 항목만 단방향으로 반영한다.
 
-## 현재 상태
+## 저장 범위
 
-- 원본: [홈투게더_고객데이터](https://docs.google.com/spreadsheets/d/14FEUBqR5mTd0QiIyW_uYEC2lH2xwbo46D_HNBrd49To/edit), `게스트_마스터` 탭, sheetId `1004515357`.
-- 운영 DB: `hometo_checkin` (`rfwxpqekweizestlxomi`). 실제 고객은 이 프로젝트에만 저장한다.
-- `checkin_guest`에 계약정보 완성 고객 5명 최초 저장 완료. 대상 ID: G002, G018, G020, G021, G022.
-- 필수정보 미완성 17명은 DB에 신규 저장하지 않았으며, ID만 있는 7행도 제외했다.
-- G021/G022 종료일은 사용자 확인 및 시트 재조회 결과 `2027-02-28`이다. 메모나 희망기간으로 날짜를 추정하지 않았다.
-- 테스트용 `hometogether-admin`에는 동일한 스키마만 적용했다. 검증용 가상 고객·실행 기록은 트랜잭션을 롤백해 남기지 않는다.
-- **일일 자동 실행 코드는 구현했지만 아직 활성화되지 않았다. Apps Script 설치·Google 권한 승인과 운영 배포가 남아 있다. 서비스 계정 JSON 키는 필요 없다.** 최초 저장은 연결된 Google Drive 도구로 읽은 스냅샷을 동일한 검증·저장 코드에 전달해 수행했다.
+사용자 확정: 고객 업무 데이터는 아래 8개 항목만 저장한다.
+
+| 시트 헤더 | DB 열 |
+| --- | --- |
+| 게스트ID* | guest_id |
+| 이름* | display_name |
+| 연락처 | phone |
+| 성별 | gender |
+| 학교또는직장명 | school |
+| 고객상태* | customer_status |
+| 실제 계약 시작일 | contract_start_date |
+| 실제 계약 종료일 | contract_end_date |
+
+`학교또는직장명` 값을 그대로 저장한다. 학교만 따로 추론하지 않는다.
+성별·학교·고객상태 값이 비어 있어도 기존 계약 완성 기준에 따라 저장하며, 빈 값은 null이다.
+필수 헤더 8개는 모두 존재해야 한다. 열 위치는 바꿔도 되지만 이름 변경·중복은 거절한다.
+
+고객 UUID, 소스 시트 식별자·행 번호, 동기화 상태·시각·검증 오류 코드는 연결과 운영에 필요한 메타데이터로 유지한다.
+특이사항 범주·상세와 전체 행을 복제하던 `source_fields`는 제거했다. 나이·부모 연락처 여부·생활패턴 등 나머지 열을 저장하지 않는다.
+원본 Google 시트는 수정하거나 삭제하지 않는다. 이번 정리는 현재 테이블 대상이며 기존 백업을 소급 수정하는 작업은 아니다.
+
+## 적용 상태
+
+- 운영: hometo_checkin (`rfwxpqekweizestlxomi`). 테스트: hometogether-admin (`qgqnktipmmamzowbxcmg`). 실고객은 운영에만 저장한다.
+- 9월 18일 사용자 확인: Apps Script에서 운영 Supabase 저장 성공.
+- 필드 축소 마이그레이션은 두 DB에 적용 완료. 운영 고객 5명의 UUID/게스트 ID와 성별 5건 유지 확인. 학교 값은 원본 저장값에 없어 0건이며 추후 시트에 입력하면 반영된다.
+- 서버 및 Apps Script 수정은 로컬 코드에 반영. 새 서버 배포와 Google 편집기의 스크립트 교체 후 실제 HTTP 재검증은 별도 진행한다.
+- 일일 트리거의 설치 여부와 다음 날 자동 실행 성공은 아직 직접 확인하지 않았다.
 
 ## 저장 조건과 갱신 규칙
 
-필수 항목은 게스트 ID, 이름, 유효한 연락처, 실제 계약 시작일·종료일이다. 종료일은 시작일보다 뒤여야 한다. `계약중` 등 고객상태는 원문을 저장하되, 저장 조건과 실제 발송 대상 조건을 혼동하지 않는다.
+필수 값은 게스트 ID, 이름, 유효한 연락처, 실제 계약 시작일·종료일이다. 종료일은 시작일보다 뒤여야 한다.
 
 | 시트 상태 | 반영 결과 |
 | --- | --- |
-| 신규 고객의 필수정보 완성 | 고객 UUID를 발급하고 저장 |
-| 신규 고객의 날짜·연락처·이름 누락 또는 오류 | 저장하지 않음. 정보를 채우면 다음 동기화에서 다시 판단 |
-| 동일 게스트 ID의 정상 정보 변경 | 같은 UUID로 갱신. 특이사항 범주·상세도 각각 반영 |
-| 이미 저장된 고객의 필수정보 누락·오류 | 마지막 유효 정보와 UUID를 보존하고 `sync_status=incomplete`로 보류 |
-| 이미 저장된 고객의 행 삭제 또는 ID 전용 행으로 변경 | 삭제하지 않고 `sync_status=missing`으로 보류 |
-| 보류 고객의 정보 복구 | 같은 UUID로 갱신하고 `ready`로 복구 |
-| 비필수 셀을 비움 | 정상 행에서는 해당 항목을 비운 값으로 갱신 |
-| 게스트 ID 중복·오류, 헤더 오류, 비어 있는 전체 결과 | 실행 전체를 중단. 기존 고객정보 유지 |
-| 늦게 끝난 오래된 읽기 결과 | 이전 동기화 결과를 덮어쓰지 않도록 거절 |
+| 신규 고객의 필수 값 완성 | 고객 UUID를 발급하고 저장 |
+| 신규 고객의 날짜·연락처·이름 누락 또는 오류 | 신규 저장 제외. 다음 동기화에서 재판단 |
+| 동일 게스트 ID의 정상 변경 | 같은 UUID로 갱신 |
+| 기존 고객의 필수 값 오류 | 마지막 유효 고객 값을 보존하고 incomplete로 보류 |
+| 기존 고객 행 삭제 또는 선택한 8개 항목 중 ID만 남음 | 삭제하지 않고 missing으로 보류 |
+| 보류 고객 정보 복구 | 같은 UUID로 갱신하고 ready로 복구 |
+| 정상 행의 성별·학교·상태를 비움 | 해당 값을 null로 갱신 |
+| ID 중복·오류, 필수 헤더 오류, 빈 전체 결과 | 전체 실행 중단 |
+| 늦게 도착한 오래된 스냅샷 | 기존 결과를 덮어쓰지 않도록 거절 |
 
-게스트 ID는 고객의 고정 식별자다. ID를 바꾸면 기존 고객은 `missing`, 새 ID는 신규 고객으로 판단하므로 ID 변경은 별도 매핑 작업으로 처리해야 한다.
+게스트 ID 변경은 새 고객으로 판단하므로 별도 매핑이 필요하다.
+`ready`는 데이터 완성 상태이지 발송 승인이 아니다. 동기화는 메시지·체크인 세션을 생성하지 않는다.
+`checkin_participant.guest_id` 외래키는 유지하며, 실제 계약 회차 연결은 후속 작업이다.
 
-`ready`는 데이터가 완성됐다는 뜻이다. 실제 발송은 고객상태·퇴실·계약 종료·회차·발송 승인 조건을 추가로 확인하는 후속 기능이다. 동기화는 메시지나 체크인 세션을 생성하지 않는다.
+## 운영 경로와 권한
 
-## 데이터 구조와 API
+게스트_마스터 → Apps Script → POST /api/integrations/guest-sheet → 서버 검증 → sync_checkin_guests RPC.
 
-- `checkin_guest`: 고객 UUID/게스트 ID, 정규화한 연락처, 실제 계약 날짜, 고객상태, 특이사항 범주·상세, 시트 원본 필드, 보류 상태, 최근 확인 시각.
-- `checkin_guest_sync_run`: 실행 ID, 소스 읽기 시각, 성공/실패, 신규·변경·제외 건수와 개인정보 없는 오류 코드.
-- `sync_checkin_guests`: 한 트랜잭션으로 갱신. 중복 실행 방지, 동시 실행 잠금, 오래된 스냅샷 차단.
-- `checkin_participant.guest_id`: 고객 UUID를 참조할 수 있는 외래키. **기존 참여자·세션을 실고객에 자동 연결하지 않는다.** 계약 회차 생성 기능에서 이 키를 사용해 연결해야 한다. 과거 응답의 계약정보를 이번 동기화로 덮어쓰지 않는다.
+- 원본 시트 ID: `14FEUBqR5mTd0QiIyW_uYEC2lH2xwbo46D_HNBrd49To`, 탭 ID: `1004515357`.
+- 주소는 `https://hometogether-checkin-web.vercel.app/api/integrations/guest-sheet`로 고정한다. 사용자 입력 주소나 다른 도메인으로 인증값을 보내지 않는다.
+- Apps Script에서 8개 열만 선택해 전송하고, 서버에서도 8개 항목만 RPC에 넘긴다.
+- 이전 전체 행 요청도 새 RPC는 성별·학교만 선별해 읽으며 나머지 원본 값을 저장하지 않는다.
+- 두 테이블은 RLS 활성화, anon/authenticated 접근 금지. RPC는 SECURITY INVOKER, service_role만 실행 가능하다.
+- 스크립트는 DB 서버 키를 갖지 않는다. 자체 동기화 인증값만 계정별 User Properties에 저장한다.
+- 시트/스크립트 편집자는 코드를 수정할 수 있으므로 신뢰하는 운영자에게만 편집 권한을 부여한다.
+- Google 서비스 계정 키·Sheets API 키·웹 앱 배포·Vercel Cron은 필요 없다.
 
-두 새 테이블에는 RLS가 켜져 있고 `anon`/`authenticated` 접근은 차단된다. 기존 운영자 인증을 확인한 서버에서 service role로 조회한다. Supabase REST API 경로는 `/rest/v1/checkin_guest`이며 브라우저에 서버 키를 전달하지 않는다. 동기화 RPC도 service role 전용이다.
+## 업데이트 순서
 
-운영 화면의 고객·응답 조인, 계약 변경/재계약 이력 해석, 실제 발송 대상 선별은 후속 작업이다. 필수정보가 나중에 불완전해진 고객의 과거 정상 값이 남아 있으므로 조회·일정 생성 시 반드시 `sync_status`와 최근 동기화 성공 여부를 함께 확인한다.
+1. DB 마이그레이션은 이미 적용됐다. 구버전 서버와도 호환된다.
+2. 수정한 서버를 운영에 배포한다. Vercel Production의 `CHECKIN_GUEST_SYNC_ENABLED=true`, 서버 인증값, 운영 DB 연결이 필요하다.
+3. 원본 시트 → 확장 프로그램 → Apps Script에서 기존 동기화 코드만 새 `scripts/google-apps-script/guest-sync.gs`로 교체한다. 다른 업무용 코드는 보존하고 동명 함수를 중복 추가하지 않는다.
+4. 기존 같은 계정의 인증 설정은 유지된다. 처음 설정하거나 키를 바꿀 때만 `configureGuestSync`를 실행한다. 이제 주소 입력 없이 인증값만 묻는다.
+5. `previewGuests`로 저장 없이 건수를 확인한다. 새 스크립트를 구버전 서버보다 먼저 적용하면 구버전 서버가 특이사항 헤더를 요구해 실패할 수 있다.
+6. `syncGuests`를 실행하고 운영 DB의 `checkin_guest`, `checkin_guest_sync_run`에서 확인한다.
+7. 자동 실행이 없다면 같은 계정으로 `installDailyGuestSync`를 실행한다. 최신 코드에서 한 번 저장 성공한 뒤 설치할 수 있다. 기존 syncGuests 트리거는 코드 교체 후에도 같은 함수를 호출한다.
+8. 다음 날 Google 실행 내역과 DB 마지막 성공 시각을 확인한다.
 
-## Apps Script 방식으로 전환 (2026-09-16)
+매일 한국 시간 오전 6~7시 사이 실행된다. 담당자 한 계정만 트리거를 관리한다.
+`removeDailyGuestSync`는 현재 계정의 동기화 트리거만 제거한다. `clearGuestSyncConfig`는 해당 트리거와 동기화 설정·상태만 지운다.
+담당자 변경 시 이전 계정에서 제거한 뒤 새 계정으로 설정한다. 다른 계정이 만든 트리거는 현재 계정에서 조회·삭제되지 않는다.
 
-조직 정책이 서비스 계정 JSON 키 생성을 차단하여 사용자가 Apps Script 방식을 선택했다.
-운영 경로는 **게스트_마스터 → Apps Script → POST /api/integrations/guest-sheet → 기존 검증·RPC → Supabase**다.
-Vercel Cron 설정과 이전 GET Cron API는 제거했다. 서비스 계정 읽기 코드는 수동 CLI용으로만 남아 있으며 자동 실행에는 사용하지 않는다.
+### 시트 메뉴에서 설정하기
 
-### 서버 준비
+UI 오류가 나면 먼저 원본 시트에 바인딩된 프로젝트인지 확인한다. 기존 `onOpen()`이 있으면 아래 호출 한 줄만 추가하고, 없을 때만 다음 함수를 추가한다. 시트를 새로고침하면 메뉴에서 설정할 수 있다.
 
-- 운영 환경의 기존 SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY를 사용한다. 테스트 DB 대상으로는 수신을 거절한다.
-- CHECKIN_GUEST_SYNC_SECRET: 암호학적으로 무작위인 32바이트 이상 인증값. NEXT_PUBLIC_ 접두사를 붙이지 않는다.
-- CHECKIN_GUEST_SYNC_ENABLED=true: 운영 설정 검증 후 활성화한다.
-- 운영 HTTPS 주소에 새 API가 배포되어야 한다. 저장소 규칙에 따라 배포는 별도 사용자 승인 후 진행한다.
-- Google 서비스 계정 키·Sheets API 키·CRON_SECRET 설정은 필요 없다.
+```javascript
+function onOpen() {
+  addGuestSyncMenu();
+}
+```
 
-### 사용자가 Google 계정에서 한 번 할 일
+`onOpen()`에서 동기화를 실행하지 않는다. 메뉴만 추가하며 인증값을 코드나 셀에 넣지 않는다.
 
-1. 원본 시트에서 **확장 프로그램 → Apps Script**를 연다.
-2. 기존 코드가 있다면 보존하고 새 스크립트 파일을 추가한다. scripts/google-apps-script/guest-sync.gs 내용을 붙여 넣고 저장한다.
-3. 운영 서버 배포 후 configureGuestSync를 실행한다. Google 권한 요청에서 사용할 계정과 요청 권한을 확인하고 승인한다.
-4. 시트에 표시되는 입력창에 운영 HTTPS 주소 + /api/integrations/guest-sheet를 입력하고, 다음 창에 서버와 같은 CHECKIN_GUEST_SYNC_SECRET을 입력한다. 키는 채팅·소스 코드·셀에 넣지 않는다.
-5. previewGuests를 실행한다. 저장 없이 완성/미완성/제외 건수를 확인한다. 최초 적재 당시 수치는 완성 5, 미완성 17, ID 전용 7이며 시트 변경에 따라 달라진다.
-6. syncGuests를 한 번 실행하고 서버 DB 실행 기록 및 고객 건수를 확인한다.
-7. 같은 계정으로 installDailyGuestSync를 한 번 실행한다. 한국 시간 매일 오전 6~7시 사이 실행된다. Google의 시간 기반 트리거는 정확한 분 단위를 보장하지 않는다.
-8. 다음 날 Apps Script의 실행 내역과 checkin_guest_sync_run의 최근 성공 기록을 확인한다.
+## 오류·재시도·확인 필요 상태
 
-Apps Script를 웹 앱으로 배포할 필요는 없다. 설치형 트리거는 만든 사람의 계정 권한으로 실행된다.
-인증값은 그 계정의 User Properties에 저장한다. 프로젝트 편집자는 코드를 바꿀 수 있으므로 시트/스크립트 편집 권한은 신뢰하는 운영자에게만 준다.
-운영 담당자 한 명이 트리거를 관리한다. 다른 계정의 트리거는 조회/제거되지 않으므로 담당자 변경 시 이전 계정에서 removeDailyGuestSync를 실행하고 새 계정에서 설정·검증·설치한다.
+- 날짜 타입 셀은 시트 시간대 기준 `yyyy-MM-dd`로 변환한다. 텍스트 날짜는 ISO 형식만 허용한다. 시트 셀 서식은 강제로 변경하지 않는다.
+- 연락처는 일반 텍스트로 입력한다. 숫자로 저장해 앞자리 0이 사라진 값은 추정 복원하지 않고 서버가 미완성 처리한다.
+- 선택한 8개 열의 수식 오류는 전송 전에 중단한다. 제외된 열의 수식 오류는 동기화를 막지 않는다.
+- 네트워크 오류·429·일시적 5xx는 2초/8초 대기 후 최대 3회 요청한다. 모든 재시도는 동일 runId/readAt/payload를 재사용한다.
+- disabled/헤더 오류처럼 원인이 확정된 오류는 재시도하지 않는다. `GUEST_SYNC_HTTP_503:GUEST_SYNC_DISABLED`처럼 허용 목록에 있는 서버 오류 코드만 표시한다.
+- 응답은 필수 건수가 0 이상 정수인지 검증한다. HTML이나 잘못된 200 응답을 성공으로 기록하지 않는다. 이전 preview 응답도 호환한다.
+- `SYNC_SAVED_REVIEW_REQUIRED`는 DB 저장은 완료됐지만 기존 고객이 incomplete/missing으로 보류됐다는 뜻이다. 건수만 남기고 같은 실행에서 재전송하지 않는다. 시트와 DB 상태를 확인한다.
+- 성공 시각과 건수는 User Properties의 GUEST_SYNC_LAST_SUCCESS/GUEST_SYNC_LAST_COUNTS에도 저장한다.
+- 트리거 실패 알림은 Google이 실행 소유자에게 제공한다. 별도 MailApp/Slack 발송은 추가하지 않았다. 운영 계정의 실패 알림 설정과 받은편지함을 확인해야 한다. 트리거 자체가 삭제되거나 실행되지 않는 경우에는 이 코드만으로 감지할 수 없다.
+- 서버 응답을 받기 전 실패는 DB에 기록되지 않을 수 있다. Google 실행 이력과 DB 마지막 성공 시각을 함께 확인한다.
+- 멈추려면 현재 계정의 트리거를 제거하거나 서버의 CHECKIN_GUEST_SYNC_ENABLED=false를 재배포한다.
 
-### 실패와 중지
+## 검토 의견에 대한 판단
 
-- removeDailyGuestSync: 현재 계정의 해당 동기화 트리거만 제거한다.
-- CHECKIN_GUEST_SYNC_ENABLED=false를 서버에 적용하면 모든 수신이 중단된다.
-- Apps Script 실패 실행은 Google 실행 내역/트리거 실패 알림에서 확인한다. 요청이 서버에 도달하지 않으면 DB 실행 기록은 생기지 않는다.
-- 수신 API의 검증/DB 오류도 현재는 DB 실패 기록을 별도 생성하지 않으므로 Google 실행 실패와 DB 마지막 성공 시각을 함께 확인한다.
-- 응답/로그에는 원본 행과 인증값을 남기지 않는다. 오류는 HTTP 상태 또는 제한된 오류 코드로 표시한다.
-- 전체 스냅샷 2MB 상한, 고정 시트 ID/탭 검증, 15분 이내 읽기 시각 검증, 공유 인증값, 명시적 활성화가 필요하다.
-- Apps Script의 동시 실행 잠금과 DB의 실행 ID/스냅샷 순서 검증을 함께 사용한다. 실패 시 자동 재전송하지 않고 다음 실행 또는 수동 실행에서 시트를 새로 읽는다.
-- Apps Script는 미완성 행도 검증용으로 서버에 보내지만 DB에는 신규 미완성 고객을 저장하지 않는다. 기존 고객 보류 규칙은 동일하다.
-- 시트 수정/삭제, 고객 메시지 발송, 체크인 세션 생성은 하지 않는다.
+| 의견 | 판단과 반영 |
+| --- | --- |
+| GS-1 임의 호스트로 비밀값 전송 | 실제 위험 경로. 운영 URL 고정 및 저장된 설정도 매번 검사. 검토문 예시 도메인은 실제 서비스 주소가 아니므로 사용하지 않음 |
+| GS-2 표시값의 날짜/전화 문제 | 날짜 타입을 ISO 변환. 텍스트 ISO 검증·전화 앞자리 검증 유지. 모든 # 접두사를 오류로 보는 과도한 규칙은 사용하지 않음 |
+| GS-3 열 변경으로 잘못 저장 | 서버는 이미 헤더명 매핑 및 중복 검증을 수행하므로 기존 평가의 전제는 부정확. 전송 측에도 이름 검증을 추가하되 순서 고정은 하지 않음 |
+| GS-4 하루 실패·보류 무감지 | 제한 재시도, 보류 확인 신호 및 마지막 성공 기록 추가. ID 전용 행은 정상이라 skippedRows만으로 실패를 만들지 않음. 새 외부 알림 전송은 추가하지 않음 |
+| GS-5 runId 무효 | 기존 UUID와 RPC의 중복 실행 검사는 유효함. 동일 요청 재시도에서 UUID를 재사용하도록 보완. 내용 해시를 UUID 대신 쓰면 API 계약을 깨고 매일 재확인 시각 갱신도 막으므로 미채택 |
+| GS-6 응답 형식 | summary를 공통 제공하고 기존 preview 최상위 건수는 호환용 유지. 스크립트에서 응답 계약 검증 추가 |
+| GS-7 UI/키 교체/진단 | 기존 onOpen을 덮어쓰지 않는 메뉴 헬퍼, 설정 삭제 함수, 안전한 오류 코드 추가. 탭 ID·이름 이중 검증은 실수 감지를 위해 유지 |
 
-현재는 코드 준비 단계다. 운영 배포, Google 권한 승인, 실제 HTTP 수신 및 다음 일일 실행 검증은 아직 완료되지 않았다.
-
-공식 참고: [설치형 트리거](https://developers.google.com/apps-script/guides/triggers/installable), [시간대 설정](https://developers.google.com/apps-script/reference/script/clock-trigger-builder), [계정별 속성](https://developers.google.com/apps-script/reference/properties/properties-service).
+Apps Script 락은 사람의 시트 편집을 막지 않는다. 단일 getValues 호출로 읽고 서버에서 검증하지만, 유효한 값 사이의 동시 편집까지 원자적 스냅샷으로 보장하지 않는다.
 
 ## 검증 기록
 
-- 가져오기·완성 조건·지정 탭 읽기·Apps Script 전송·수신 인증·미리보기 테스트 34개 통과. Google 실제 실행과 배포 후 HTTP 연결은 아직 미검증.
-- 테스트 DB의 `supabase/tests/guest_sheet_sync.sql` 통과: 신규 미완성 고객 제외, 중복 실행, 갱신 후 UUID 유지, 기존 고객 보류·누락·복구, 정보 완성 후 추가, 오래된 스냅샷 거절, RLS/권한.
-- 운영 최초 저장: 신규 5명, 미완성 제외 17명, ID 전용 행 제외 7개.
-- 저장 후 운영 DB 재조회에서 5명의 ID·계약 날짜 일치 확인. 테스트 DB는 고객/실행 기록 모두 0건 확인.
-- 변경 파일 ESLint 및 기존 손상 생성 파일 `.next/dev/types/validator.ts` 하나를 제외한 TypeScript 검사 통과. 일반 `tsc --noEmit`은 작업 전부터 있던 해당 캐시 파일의 문법 오류로 실패한다. 사용자 `next-env.d.ts` 변경은 보존했다.
-- 보안 점검에서 새 테이블의 RLS/no-policy INFO는 서버 전용 설계에 따른 상태다. [Supabase 설명](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy)
+- 관련 Vitest 48개 통과: 열 최소화, 재정렬, 날짜 시간대, 제외 항목 비전송, 임의 호스트 차단, 수식 오류, 동일 요청 재시도, 응답 검증 등.
+- 테스트 DB에서 마이그레이션 + 가상 데이터 검증 후 롤백 통과. 실제 적용 후에도 SQL 검증 통과, 가상 행은 남기지 않음.
+- 신규/기존 고객 처리, UUID 유지, 중복 요청, 과거 스냅샷 거절, 구버전 요청 호환, 성별·학교 비우기, 삭제된 열 부재, RLS/실행 권한 확인.
+- 운영 DB 적용 후 고객 5명과 식별자 지문이 적용 전과 일치. 불필요한 세 열 부재 및 신규 열 확인.
+- 수정 파일 ESLint 통과. 일반 tsc는 작업 전부터 있던 .next/dev/types/validator.ts의 TS1434 오류로 실패하며, 해당 생성 파일만 제외한 전체 타입 검사는 오류 0개로 통과했다.
+- 보안 점검: 고객 테이블의 RLS/no-policy INFO는 서버 전용 설계. 이번 RPC는 invoker이며 공개 실행 권한 없음. 기존 Auth 설정 및 공유 테스트 DB의 타 기능 경고는 이번 범위에서 변경하지 않음.
 
-공식 근거: [Google 서버 인증](https://developers.google.com/identity/protocols/oauth2/service-account), [Sheets 값 읽기](https://developers.google.com/workspace/sheets/api/reference/rest/v4/spreadsheets.values/get), [Vercel Cron](https://vercel.com/docs/cron-jobs/manage-cron-jobs), [일일 실행 주기·시간 정밀도](https://vercel.com/docs/cron-jobs/usage-and-pricing).
+공식 참고: [Apps Script 원본 값](https://developers.google.com/apps-script/reference/spreadsheet/range#getValues()), [설치형 트리거](https://developers.google.com/apps-script/guides/triggers/installable), [Supabase 함수 권한](https://supabase.com/docs/guides/database/functions).
