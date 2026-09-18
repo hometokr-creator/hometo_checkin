@@ -62,7 +62,7 @@ DB나 고객 데이터를 읽지 않는다. TypeScript 캘린더와 SQL 캘린�
 pnpm checkin:plan-schedules --env=.env.checkin-test --expect-project=qgqnktipmmamzowbxcmg
 ```
 
-운영 적용 승인 및 마이그레이션 이후에는 다음 명령을 사용할 수 있다.
+운영 마이그레이션 적용이 완료되어 다음 명령을 사용할 수 있다.
 
 ```powershell
 pnpm checkin:plan-schedules --env=.env.local --expect-project=rfwxpqekweizestlxomi
@@ -103,7 +103,8 @@ pnpm checkin:plan-schedules --env=.env.checkin-test --expect-project=qgqnktipmma
 - 기존 고객 동기화 SQL 테스트도 새 트리거가 있는 상태에서 통과.
 - Vitest 관련 78개, 명령 옵션 테스트 2개 통과. 수정 파일 ESLint 및 기존 손상 `.next/dev/types/validator.ts`를 제외한 타입 검사 통과.
 - 실제 테스트 DB 인증정보로 CLI 미리보기 성공: 고객 0명·계획 0건. 가상 일정 데이터를 남기지 않음.
-- 운영 DB 적용은 자동 승인 검토에서 명시적 운영 배포 승인이 필요하다는 이유로 거절되어 아직 미적용. 우회 실행하지 않음.
+- 2026-09-18 사용자 명시적 승인 후 운영 `hometo_checkin`에도 마이그레이션 적용 및 초기 일정 계산 완료: 고객 5명, 대상 조건 미충족 보류 5명, 생성 계약·일정 0건.
+- 적용 전후 고객 UUID/외부 ID 동일 확인. 기존 세션 5개·토큰 5개·발송 기록 0개 유지. 신규 세션·토큰·메시지 생성 없음. 동기화 트리거 활성화, 신규 테이블 RLS 및 서버 전용 실행 권한 확인.
 - 현재 확인된 운영 고객 5명은 매칭중 1명/상태 빈 값 4명이다. 승인된 대상 조건에 따라 현재 생성 대상은 0명이다. 고객상태를 임의로 바꾸지 않는다.
 - 운영 화면의 고객 UUID 이력 연결 코드는 새 웹 배포가 필요하다. 운영 로그인/실제 발송 후 응답 매칭 검증은 아직 하지 않았다.
 - 공유 테스트 DB의 기존 Auth/타 기능 경고는 그대로이며 새 테이블의 RLS/no-policy INFO는 서버 전용 설계에 따른 상태다.
