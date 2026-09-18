@@ -44,7 +44,10 @@ export async function POST(request: Request) {
       return reply({ error: "STALE_SNAPSHOT" }, 400);
     }
     const plan = planGuestSync(snapshot as GuestSheetSnapshot);
-    if (input.dryRun) return reply({ dryRun: true, complete: plan.complete, incomplete: plan.incomplete, skippedRows: plan.skippedRows });
+    if (input.dryRun) {
+      const summary = { complete: plan.complete, incomplete: plan.incomplete, skippedRows: plan.skippedRows };
+      return reply({ dryRun: true, summary, ...summary }); // Legacy Apps Script compatibility.
+    }
     return reply(await persistGuestSnapshot(snapshot, input.runId));
   } catch (error) {
     return reply({ error: error instanceof GuestSyncError ? error.code : "GUEST_SYNC_FAILED" }, 503);

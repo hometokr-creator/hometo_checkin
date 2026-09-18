@@ -9,7 +9,7 @@ const secret = "test-secret-with-at-least-thirty-two-bytes";
 const payload = () => ({
   runId: "00000000-0000-4000-8000-000000000001", dryRun: false,
   snapshot: { ...GUEST_SHEET, readAt: new Date().toISOString(), values: [
-    ["게스트ID*", "이름*", "연락처", "고객상태*", "특이사항범주", "특이사항상세", "실제 계약 시작일", "실제 계약 종료일"],
+    ["게스트ID*", "이름*", "연락처", "고객상태*", "성별", "학교또는직장명", "실제 계약 시작일", "실제 계약 종료일"],
     ["G001", "테스트", "01012345678", "", "", "", "2026-09-01", "2027-03-01"],
     ["G002", "미완성", "01011112222", "", "", "", "", ""]
   ] }
@@ -43,7 +43,7 @@ describe("Apps Script receiver", () => {
   it("previews complete and incomplete rows without saving", async () => {
     const body = payload(); body.dryRun = true;
     const response = await POST(request(body));
-    expect(await response.json()).toEqual({ dryRun: true, complete: 1, incomplete: 1, skippedRows: 0 });
+    expect(await response.json()).toEqual({ dryRun: true, summary: { complete: 1, incomplete: 1, skippedRows: 0 }, complete: 1, incomplete: 1, skippedRows: 0 });
     expect(persist).not.toHaveBeenCalled();
   });
   it("passes the original run ID for database idempotency", async () => {
