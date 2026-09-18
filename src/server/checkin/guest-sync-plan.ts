@@ -38,15 +38,9 @@ export function planGuestSync(snapshot: GuestSheetSnapshot) {
   if (preview.problems.some((problem) => problem.field === "guestId")) {
     throw new GuestSyncError("INVALID_OR_DUPLICATE_GUEST_ID");
   }
-  const headers = snapshot.values[0].map((value) => String(value ?? "").trim());
-  // Reject duplicate optional headers too: source_fields must never silently lose data.
-  const nonempty = headers.filter(Boolean);
-  if (new Set(nonempty).size !== nonempty.length) throw new GuestSyncError("INVALID_HEADERS");
   const guests = preview.guests.map((guest) => {
     const problems = preview.problems.filter((problem) => problem.row === guest.sourceRow);
     const invalid = (field: string) => problems.some((problem) => problem.field === field);
-    const sourceFields = Object.fromEntries(headers.flatMap((header, index) => header
-      ? [[header, String(snapshot.values[guest.sourceRow - 1][index] ?? "").trim()]] : []));
     return {
       guest_id: guest.guestId,
       source_row: guest.sourceRow,
@@ -55,9 +49,8 @@ export function planGuestSync(snapshot: GuestSheetSnapshot) {
       contract_start_date: invalid("contractStart") ? null : guest.contractStart,
       contract_end_date: invalid("contractEnd") ? null : guest.contractEnd,
       customer_status: guest.status,
-      note_category: guest.noteCategory,
-      note_detail: guest.noteDetail,
-      source_fields: sourceFields,
+      gender: guest.gender,
+      school: guest.school,
       validation_errors: problems.map(({ field, code }) => ({ field, code })),
     };
   });

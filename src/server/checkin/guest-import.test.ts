@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 import { previewGuestImport } from "./guest-import";
-const headers = ["게스트ID*", "이름*", "연락처", "고객상태*", "특이사항범주", "특이사항상세", "실제 계약 시작일", "실제 계약 종료일"];
-const guest = ["G001", "가상 고객", "010-0000-0000", "계약중", "예산·계약", "가상 메모", "2026-01-31", "2027-01-31"];
+const headers = ["게스트ID*", "이름*", "연락처", "고객상태*", "성별", "학교또는직장명", "실제 계약 시작일", "실제 계약 종료일"];
+const guest = ["G001", "가상 고객", "010-0000-0000", "계약중", "여성", "가상대학교", "2026-01-31", "2027-01-31"];
 describe("guest import preview", () => {
-  it("maps by header even when columns move, preserving notes and phone zero", () => {
+  it("maps by header even when columns move, preserving selected fields and phone zero", () => {
     const result = previewGuestImport([[...headers].reverse(), [...guest].reverse()]);
     expect(result.problems).toEqual([]);
-    expect(result.guests[0]).toMatchObject({ guestId: "G001", phone: "01000000000", noteCategory: "예산·계약", noteDetail: "가상 메모" });
+    expect(result.guests[0]).toMatchObject({ guestId: "G001", phone: "01000000000", gender: "여성", school: "가상대학교" });
   });
   it("skips blank and ID-only rows but reports incomplete customers", () => {
     const result = previewGuestImport([headers, [], ["G002"], ["G003", "가상 고객"]]);

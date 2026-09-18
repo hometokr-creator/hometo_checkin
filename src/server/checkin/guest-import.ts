@@ -1,9 +1,9 @@
 import "server-only";
 
-// Input is Google Sheets FORMATTED_VALUE data. No persistence or sending here.
+// Header-mapped strings; Apps Script normalizes typed date cells to ISO before sending.
 const columns = {
   guestId: "게스트ID*", name: "이름*", phone: "연락처",
-  status: "고객상태*", noteCategory: "특이사항범주", noteDetail: "특이사항상세",
+  status: "고객상태*", gender: "성별", school: "학교또는직장명",
   contractStart: "실제 계약 시작일", contractEnd: "실제 계약 종료일",
 } as const;
 type Field = keyof typeof columns;
@@ -13,8 +13,8 @@ export interface ImportedGuest {
   name: string;
   phone: string | null;
   status: string | null;
-  noteCategory: string | null;
-  noteDetail: string | null;
+  gender: string | null;
+  school: string | null;
   contractStart: string | null;
   contractEnd: string | null;
 }
@@ -48,12 +48,12 @@ export function previewGuestImport(values: readonly (readonly unknown[])[]): Gue
   const ids = new Map<string, number[]>();
   values.slice(1).forEach((raw, offset) => {
     const row = offset + 2;
-    if (!raw.some((value) => cell(value))) return;
+    if (!Object.values(indexes).some((index) => cell(raw[index]))) return;
     const read = (field: Field) => cell(raw[indexes[field]]);
     const problem = (field: Field, code: ImportProblem["code"]) => result.problems.push({ row, field, code });
     const guestId = read("guestId");
-    // Ignore only true ID-only placeholders, never a partially entered customer.
-    if (guestId && raw.every((value, index) => index === indexes.guestId || !cell(value))) {
+    // Placeholder eligibility considers only the eight approved fields.
+    if (guestId && Object.entries(indexes).every(([field, index]) => field === "guestId" || !cell(raw[index]))) {
       result.skippedRows.push(row);
       return;
     }
@@ -75,8 +75,8 @@ export function previewGuestImport(values: readonly (readonly unknown[])[]): Gue
     }
     if (isoDate(contractStart) && isoDate(contractEnd) && contractEnd <= contractStart) problem("contractEnd", "invalid");
     result.guests.push({ sourceRow: row, guestId, name, phone: phone || null,
-      status: read("status") || null, noteCategory: read("noteCategory") || null,
-      noteDetail: read("noteDetail") || null, contractStart: contractStart || null, contractEnd: contractEnd || null });
+      status: read("status") || null, gender: read("gender") || null,
+      school: read("school") || null, contractStart: contractStart || null, contractEnd: contractEnd || null });
   });
   for (const rows of ids.values()) {
     if (rows.length > 1) for (const row of rows) result.problems.push({ row, field: "guestId", code: "duplicate" });
