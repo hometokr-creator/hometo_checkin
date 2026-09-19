@@ -73,6 +73,15 @@ describe("list semantics", () => {
     expect(filterResponses([base], { ...filter, from: "2026-09-09" })).toEqual([]);
     expect(filterResponses([base], { ...filter, from: "2026-02-30" })).toEqual([]);
   });
+  it("links renewed-contract history by guest UUID while preserving its contract dates", () => {
+    const current = mapResponse(record())!;
+    current.participant.guestId = "guest-1";
+    const old = { ...current, id: "old-contract", submittedAt: "2026-01-01T00:00:00Z",
+      participant: { ...current.participant, id: "prior-participant", contractStart: "2025-01-01", contractEnd: "2026-01-01" } };
+    const other = { ...old, id: "same-name", participant: { ...old.participant, guestId: "guest-2" } };
+    expect(previousResponses([current, old, other], current)).toEqual([old]);
+    expect(old.participant.contractStart).toBe("2025-01-01");
+  });
   it("retains history outside current dates and does not mix same-name people", () => {
     const base = mapResponse(record())!;
     const old = { ...base, id: "old", submittedAt: "2026-01-01T00:00:00Z" };

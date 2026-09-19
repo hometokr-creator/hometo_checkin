@@ -58,8 +58,6 @@ async function load(tokenId: string, sessionId: string) {
     .maybeSingle();
   if (te) databaseError(te);
   if (!token || token.revoked_at) throw new CheckinError("invalid", 401);
-  if (Date.parse(token.expires_at) <= Date.now())
-    throw new CheckinError("expired", 410);
   const { data: row, error: se } = await db
     .from("checkin_session")
     .select("*")
@@ -68,6 +66,8 @@ async function load(tokenId: string, sessionId: string) {
   if (se) databaseError(se);
   if (!row || row.status === "cancelled")
     throw new CheckinError("invalid", 401);
+  if (row.delivery_pending) throw new CheckinError("unavailable", 503);
+  if (Date.parse(token.expires_at) <= Date.now()) throw new CheckinError("expired", 410);
   const { data: participant, error: pe } = await db
     .from("checkin_participant")
     .select("display_name,active")
