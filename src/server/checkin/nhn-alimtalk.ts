@@ -1,4 +1,5 @@
 import "server-only";
+import { dispatchMode } from "./dispatch-policy";
 
 // Provider adapter only. No scheduler, DB writes or automatic retries.
 const ENDPOINT = "https://kakaotalk-bizmessage.api.nhncloudservice.com/alimtalk/v2.3/appkeys/";
@@ -24,17 +25,25 @@ function phone(value: string): string {
   return normalized;
 }
 
-/** Test recipients only until the durable scheduling/delivery workflow is connected. */
-export async function sendNhnTestAlimtalk(input: {
+type SendInput = {
   recipientNo: string;
   templateCode: string;
   templateParameter: Record<string, string>;
   attemptId: string;
-}, env: Env = process.env, transport: typeof fetch = fetch): Promise<NhnAcceptance> {
-  if (env.NHN_ALIMTALK_TEST_SEND_ENABLED !== "true") throw new Error("NHN_SEND_DISABLED");
+};
+export async function sendNhnTestAlimtalk(input: SendInput, env: Env = process.env, transport: typeof fetch = fetch) {
+  return send(input, env, transport, false);
+}
+export async function sendNhnScheduledAlimtalk(input: SendInput, env: Env = process.env, transport: typeof fetch = fetch) {
+  const mode = dispatchMode(env);
+  if (mode !== "test" && mode !== "live") throw new Error("NHN_SEND_DISABLED");
+  return send(input, env, transport, mode === "live");
+}
+async function send(input: SendInput, env: Env, transport: typeof fetch, live: boolean): Promise<NhnAcceptance> {
+  if (!live && env.NHN_ALIMTALK_TEST_SEND_ENABLED !== "true") throw new Error("NHN_SEND_DISABLED");
   const recipientNo = phone(input.recipientNo);
   const allowed = (env.NHN_ALIMTALK_TEST_RECIPIENTS ?? "").split(",").map(v => v.trim()).filter(Boolean).map(phone);
-  if (!allowed.includes(recipientNo)) throw new Error("NHN_RECIPIENT_NOT_ALLOWED");
+  if (!live && !allowed.includes(recipientNo)) throw new Error("NHN_RECIPIENT_NOT_ALLOWED");
   const templates = (env.NHN_ALIMTALK_APPROVED_TEMPLATE_CODES ?? "").split(",").map(v => v.trim()).filter(Boolean);
   if (!input.templateCode || input.templateCode.length > 20 || !templates.includes(input.templateCode)) {
     throw new Error("NHN_TEMPLATE_NOT_APPROVED");
