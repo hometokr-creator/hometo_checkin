@@ -8,6 +8,7 @@ export const ADMIN_TOPICS = { kitchen: "주방·공용공간", "daily-life": "�
 export const ADMIN_OUTCOMES = { ok: "불만 없음", reported: "불만 있음", urgent: "긴급" } as const;
 export interface AdminIssue { id: string; tag: AdminTag; detailLabel: string | null; freeText: string | null }
 export interface AdminParticipant {
+  guestId?: string | null;
   id: string; name: string; phone: string; property: string | null; host: string | null;
   contractStart: string; contractEnd: string;
 }
@@ -57,7 +58,8 @@ export function responseSummary(responses: AdminResponse[]) {
   return { total: responses.length, reported: responses.filter((r) => r.outcome !== "ok").length, urgent: responses.filter(isUrgentResponse).length };
 }
 export function previousResponses(responses: AdminResponse[], selected: AdminResponse) {
-  return responses.filter((r) => r.participant.id === selected.participant.id && r.id !== selected.id && Date.parse(r.submittedAt) < Date.parse(selected.submittedAt))
+  return responses.filter((r) => (r.participant.guestId && selected.participant.guestId
+    ? r.participant.guestId === selected.participant.guestId : r.participant.id === selected.participant.id) && r.id !== selected.id && Date.parse(r.submittedAt) < Date.parse(selected.submittedAt))
     .sort((a, b) => Date.parse(b.submittedAt) - Date.parse(a.submittedAt) || a.id.localeCompare(b.id));
 }
 export function formatAdminTime(value: string) {
