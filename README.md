@@ -4,6 +4,8 @@
 
 ## 설계 문서
 
+[알림톡 관리자 설명서](docs/alimtalk-operator-manual.md) — 발송 날짜·템플릿, 고객 동기화 함수와 결과값, 고객 ID·토큰, 응답 화면 관리 및 운영 점검 안내입니다. 구현 완료와 운영 연결 전 상태를 구분합니다.
+
 [운영 출시까지 남은 작업과 확정 정책](docs/remaining-work.md) — 현재 완료 상태, 다음 개발 순서, 사용자와 결정할 항목의 시작점입니다.
 
 [테스트 환경 실행 안내](docs/test-environment.md) · [구글 시트 고객 데이터 연동](docs/guest-sheet-integration.md) · [운영자 화면 확정 설계](docs/checkin-admin-design.md)
