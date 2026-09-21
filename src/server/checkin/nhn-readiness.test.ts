@@ -8,6 +8,11 @@ const response = (message: unknown) => vi.fn<typeof fetch>().mockResolvedValue(R
   header: { isSuccessful: true }, message,
 }));
 describe("delivery-based expiration inputs", () => {
+  it("accepts NHN fractional delivery timestamps", () => {
+    expect(parseNhnTime("2026-09-21 14:25:42.0")).toBe("2026-09-21T05:25:42.000Z");
+    expect(parseNhnTime("2026-09-21 14:25:42.123")).toBe("2026-09-21T05:25:42.123Z");
+    expect(parseNhnTime("2026-02-30 14:25:42.0")).toBeNull();
+  });
   it("converts actual NHN Korean delivery time without using polling time", async () => {
     const fetcher = response({ requestId: "r", recipientSeq: 1, messageStatus: "COMPLETED", receiveDate: "2026-09-19 14:03:00" });
     expect(await nhnDeliveryResult("r", 1, env, fetcher)).toEqual({ state: "sent", receivedAt: "2026-09-19T05:03:00.000Z" });
