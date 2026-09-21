@@ -43,10 +43,10 @@ export type NhnDeliveryResult =
   | { state: "failed" | "cancelled" | "pending" | "unknown" };
 /** NHN date/time strings are interpreted explicitly in Korea, never the host timezone. */
 export function parseNhnTime(value: unknown): string | null {
-  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value)) return null;
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d{1,3})?$/.test(value)) return null;
   const parsed = new Date(value.replace(" ", "T") + "+09:00");
   if (!Number.isFinite(parsed.getTime())) return null;
-  if (new Date(parsed.getTime() + 9 * 3600000).toISOString().slice(0, 19) !== value.replace(" ", "T")) return null;
+  if (new Date(parsed.getTime() + 9 * 3600000).toISOString().slice(0, 19) !== value.replace(" ", "T").slice(0, 19)) return null;
   return parsed.toISOString();
 }
 export async function nhnDeliveryResult(requestId: string, seq: number,

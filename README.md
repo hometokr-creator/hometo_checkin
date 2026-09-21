@@ -4,6 +4,8 @@
 
 ## 설계 문서
 
+[알림톡 운영 안내](docs/alimtalk-operator-manual.md) — 발송 시기, 고객정보 수정, 응답 링크, 관리자 화면 사용법과 일일 확인 사항을 정리한 담당자용 안내입니다.
+
 [운영 출시까지 남은 작업과 확정 정책](docs/remaining-work.md) — 현재 완료 상태, 다음 개발 순서, 사용자와 결정할 항목의 시작점입니다.
 
 [테스트 환경 실행 안내](docs/test-environment.md) · [구글 시트 고객 데이터 연동](docs/guest-sheet-integration.md) · [운영자 화면 확정 설계](docs/checkin-admin-design.md)
