@@ -8,7 +8,7 @@
 
 - 회사 저장소: hometokr-creator/hometo_checkin, codex/contract-checkin-schedule.
 - 테스트 DB에 checkin_dispatch 마이그레이션 적용 및 가상 데이터 롤백 검증 완료.
-- 운영 DB에는 이번 마이그레이션 미적용. 실제 발송·예약 호출은 활성화하지 않았다.
+- 2026-09-22 운영 DB에 dispatch 및 Cron 호출 함수를 적용했다. 최종 활성화 기록은 이 문서 하단 참조.
 - GET /api/internal/checkin-dispatch: 32바이트 이상 CRON_SECRET을 Bearer 인증으로 전달한다. 응답에는 집계만 포함한다.
 - CHECKIN_DISPATCH_MODE 기본 disabled. dry-run은 후보 조회만 수행하고 DB를 변경하거나 NHN을 호출하지 않는다.
 - test는 NHN_ALIMTALK_TEST_SEND_ENABLED=true 및 NHN_ALIMTALK_TEST_RECIPIENTS 허용 목록이 모두 필요하다.
@@ -24,7 +24,7 @@
 3. 운영 DB 마이그레이션 적용 후 disabled 또는 dry-run 배포. 계약중·입주중 대상과 일정 건수를 대조한다.
 4. 운영 환경 인증값과 네 가지 템플릿 코드를 설정한다. 승인된 운영 전환 시에만 live 및 발송 스위치를 켠다.
 5. 인증된 스케줄러에서 한국 시간 14시에 첫 호출하고 이후 짧은 주기로 호출한다. 18시 이후에도 보류 처리 및 전달 결과 조회를 위해 호출을 유지한다.
-   Vercel Hobby는 하루 1회·시간 단위 실행 오차 때문에 이 반복 호출 요구에 맞지 않는다. Vercel Pro 또는 별도 서버 스케줄러를 선택한 후 등록한다. 현재 vercel.json에 자동 호출을 등록하지 않았다.
+   Vercel Hobby 대신 운영 Supabase pg_cron + pg_net을 사용한다. vercel.json에는 중복 Cron을 등록하지 않는다.
 6. 후보·접수·실제 전달·unknown·보류 건수를 운영 모니터링에 연결한다. 503, unknown 또는 남은 후보는 운영자가 확인한다.
 
 ## 중복과 불확실한 결과
@@ -50,3 +50,31 @@ unknown은 NHN 콘솔에서 attemptId 그룹키를 조회해 접수 여부를 �
 - 운영 access API 200 및 해당 가상 세션 매칭 확인. 담당자의 링크 클릭·설문 제출 및 운영 화면 확인은 후속 단계다.
 - 실제 NHN receiveDate에 소수점이 포함되는 사례를 확인해 파서를 수정하고 소수점·유효하지 않은 날짜 회귀 테스트를 추가했다.
 - 자동 발송과 도메인 전환은 활성화하지 않았다. 이번 가상 참여자는 guest_id가 없어 시트 기반 자동 일정 대상에 포함되지 않는다.
+
+## 운영 자동 실행 구성 (2026-09-22)
+
+- NHN 템플릿 4종의 새 링크 https://checkin.hometogether.kr/c/#{token} 및 승인 TSC03 확인.
+- Production만 CHECKIN_DISPATCH_MODE=live, NHN_ALIMTALK_LIVE_SEND_ENABLED=true로 설정한다. Preview는 실제 발송 금지 정책을 유지한다.
+- Supabase Cron 작업 이름: checkin-dispatch-minute. 매분 checkin_private.invoke_dispatch() 호출.
+- 함수는 KST 14:00~18:00의 당일 후보가 있거나 미확정 전달 결과가 있을 때 HTTP 호출한다. 매일 14:00 및 18:01에는 상태 확인/보류 처리를 위해 후보 없이도 호출한다.
+- 후보가 없고 전달 확인도 끝난 시간에는 HTTP 호출 없이 종료한다. 첫 발송은 14:00 실행부터이며 인프라 실행·네트워크 지연이 있을 수 있다.
+- 전달 결과는 시간대와 관계없이 매분 조회한다. 실제 전달 성공 확인 후 링크가 활성화되어 수신 직후에는 최대 호출 주기만큼 대기할 수 있다.
+- CRON_SECRET은 운영 Vercel의 민감 환경변수와 Supabase Vault의 checkin_dispatch_cron_secret에 보관한다. Cron 명령에는 키를 넣지 않는다.
+- CHECKIN_APP_ORIGIN은 새 고객 도메인이다. CHECKIN_LEGACY_APP_ORIGINS에는 기존 hometogether-checkin-web.vercel.app만 허용한다. CHECKIN_ADMIN_ORIGIN은 기존 관리자 인증 주소를 유지한다.
+- 과거 링크와 새 도메인의 access API 모두 200 확인. 익명 Cron 요청은 401, 인증된 dry-run과 Supabase pg_net 호출은 200 및 후보 0건 확인.
+- 고객 상태는 시트에서 계약중 또는 입주중으로 입력하고 계약 날짜를 완성해야 한다. 일일 동기화 때 일정이 생성되며 과거 회차는 소급하지 않는다.
+
+### 중지와 확인
+
+긴급 중지는 Supabase SQL Editor에서 아래를 실행한다. 이미 NHN에 접수된 메시지는 이 작업으로 취소되지 않는다. 중지 중에는 전달 성공 확인도 멈추므로 응답 링크 활성화 상태를 함께 확인한다.
+
+```sql
+select cron.alter_job(jobid, active := false)
+from cron.job where jobname = 'checkin-dispatch-minute';
+```
+
+재개는 같은 명령의 active를 true로 바꾼다. Vercel 설정까지 중지하려면 CHECKIN_DISPATCH_MODE=disabled로 저장한 뒤 재배포해야 한다. 환경변수 변경만으로 기존 배포가 바뀌지는 않는다.
+
+실행 결과는 cron.job_run_details와 net._http_response에서 확인한다. Cron의 succeeded는 SQL 실행 성공일 뿐 HTTP/발송 성공을 의미하지 않는다. HTTP 200과 응답 mode, accepted, reconciled, unknown을 함께 확인하고 실제 발송 상태는 checkin_dispatch_attempt로 대조한다.
+
+pg_net은 Supabase가 관리하는 net 스키마를 사용하며 확장 메타데이터의 public 스키마 경고가 남는다. 이번 스키마 이동은 수행하지 않았다. 플랫폼 소유 기본 ACL은 일반 postgres 역할의 REVOKE로 제거되지 않았으나, net은 REST 노출 스키마가 아니며 공개 키로 요청 시 PGRST106/406을 확인했다. 공개 고객 테이블과 발송 RPC는 기존 RLS/역할 제한을 유지한다. [Supabase 확장 스키마 경고 설명](https://supabase.com/docs/guides/database/database-linter?lint=0014_extension_in_public)

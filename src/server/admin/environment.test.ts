@@ -9,6 +9,12 @@ function setup() {
   vi.stubEnv("CHECKIN_ADMIN_EMAILS", " Admin@example.com ,");
 }
 describe("admin environment", () => {
+  it("preserves the existing admin callback origin during a guest-domain change", () => {
+    setup(); vi.stubEnv("CHECKIN_ADMIN_ORIGIN", "https://admin.example.com");
+    expect(adminEnvironment().origin).toBe("https://admin.example.com");
+    vi.stubEnv("CHECKIN_ADMIN_ORIGIN", "http://admin.example.com");
+    expect(() => adminEnvironment()).toThrow();
+  });
   it("normalizes configured addresses without requiring a privileged key", () => {
     setup(); vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "");
     expect(adminEnvironment().emails).toEqual(["admin@example.com"]);

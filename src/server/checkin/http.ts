@@ -27,7 +27,7 @@ export function keys(value: Record<string, unknown>, allowed: string[]) {
     throw new CheckinError("invalid-answer", 422);
 }
 export async function body(request: Request, limit = 16000) {
-  if (request.headers.get("origin") !== accessEnvironment().origin)
+  if (!accessEnvironment().allowedOrigins.includes(request.headers.get("origin") ?? ""))
     throw new CheckinError("invalid", 403);
   if (!request.headers.get("content-type")?.startsWith("application/json"))
     throw new CheckinError("invalid-answer", 415);

@@ -32,12 +32,17 @@ export function accessEnvironment() {
   ) {
     throw new Error("CHECKIN_APP_ORIGIN must use HTTPS in production");
   }
-  return { secret, origin, secure: origin.startsWith("https://") };
+  const legacyOrigins = (process.env.CHECKIN_LEGACY_APP_ORIGINS ?? "").split(",").map(v => v.trim()).filter(Boolean);
+  for (const value of legacyOrigins) {
+    const url = new URL(value);
+    if (url.protocol !== "https:" || url.origin !== value) throw new Error("Invalid legacy check-in origin");
+  }
+  return { secret, origin, allowedOrigins: [origin, ...legacyOrigins], secure: origin.startsWith("https://") };
 }
 
 export function adminEnvironment() {
   const url = new URL(required("SUPABASE_URL"));
-  const appUrl = new URL(required("CHECKIN_APP_ORIGIN"));
+  const appUrl = new URL(process.env.CHECKIN_ADMIN_ORIGIN?.trim() || required("CHECKIN_APP_ORIGIN"));
   for (const value of [url, appUrl]) {
     if (value.protocol !== "https:" && !(value.protocol === "http:" &&
       ["localhost", "127.0.0.1", "[::1]"].includes(value.hostname))) {
