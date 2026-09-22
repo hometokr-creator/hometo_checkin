@@ -78,3 +78,9 @@ from cron.job where jobname = 'checkin-dispatch-minute';
 실행 결과는 cron.job_run_details와 net._http_response에서 확인한다. Cron의 succeeded는 SQL 실행 성공일 뿐 HTTP/발송 성공을 의미하지 않는다. HTTP 200과 응답 mode, accepted, reconciled, unknown을 함께 확인하고 실제 발송 상태는 checkin_dispatch_attempt로 대조한다.
 
 pg_net은 Supabase가 관리하는 net 스키마를 사용하며 확장 메타데이터의 public 스키마 경고가 남는다. 이번 스키마 이동은 수행하지 않았다. 플랫폼 소유 기본 ACL은 일반 postgres 역할의 REVOKE로 제거되지 않았으나, net은 REST 노출 스키마가 아니며 공개 키로 요청 시 PGRST106/406을 확인했다. 공개 고객 테이블과 발송 RPC는 기존 RLS/역할 제한을 유지한다. [Supabase 확장 스키마 경고 설명](https://supabase.com/docs/guides/database/database-linter?lint=0014_extension_in_public)
+
+### 활성화 완료
+
+2026-09-22 운영 배포 dpl_7bMYcdgw6HRkYu1G2CmAvRzrKdio가 READY이며 checkin.hometogether.kr에 반영됐다. 인증 호출 결과 HTTP 200, mode=live, candidates=0, accepted=0, unknown=0을 확인했다. 운영 Cron checkin-dispatch-minute을 매분 활성화했다. 현재 계약중·입주중 대상이 0명이므로 이번 활성화로 실제 발송된 메시지는 없다.
+
+전체 테스트 231개와 추가 관리자 도메인 테스트가 통과했으며 타입 검사·운영 빌드도 통과했다. 코드와 운영 문서는 회사 저장소 codex/contract-checkin-schedule 브랜치에 반영했다. main 병합은 수행하지 않았다.
